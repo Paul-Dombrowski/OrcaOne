@@ -10,7 +10,9 @@ Die genaue Schnittstelle (Endpunkte, Nachrichtenformat) steht in
 ## Aufgaben des NetworkManager
 
 1. **WLAN-Hotspot** aufspannen (Access-Point-Modus) — funktioniert **ohne
-   Internet**, wie vom Projektauftrag verlangt. SSID/Passwort aus `config.h`.
+   Internet**, wie vom Projektauftrag verlangt. SSID/Passwort aus `config.h`
+   (bzw. `secrets.h`). Der Hotspot ist **passwortgeschützt**; Besucher verbinden
+   sich per **QR-Code**, der SSID + Passwort enthält.
 2. **Webserver**: liefert die Weboberfläche (HTML/CSS/JS aus dem Dateisystem).
 3. **WebSocket** (`/ws`): hält eine Live-Verbindung zum Handy offen für
    - **Status-Push**: alle ~500 ms (`STATUS_PUSH_MS`) den Zustand aller Module
@@ -18,6 +20,11 @@ Die genaue Schnittstelle (Endpunkte, Nachrichtenformat) steht in
      „ohne manuelles Neuladen").
    - **Befehle empfangen**: JSON vom Handy entgegennehmen und an das richtige
      Modul weiterreichen (`handleCommand`).
+
+**Zugriffsmodell (festgelegt):** **Jedes** verbundene Handy darf steuern — es gibt
+**keine** App-seitige Zugriffssperre und keine „nur einer steuert"-Logik. Der
+einzige Schutz ist das WLAN-Passwort. Alle verbundenen Geräte erhalten denselben
+Status-Push.
 
 ## So reicht es Befehle an Module weiter
 

@@ -7,6 +7,14 @@ bewertete Bereich — hier lohnt sich Sorgfalt.
 |---|---|
 | `web-api.md` | Genaues Nachrichtenformat: Befehle (Handy→ESP32) und Status (ESP32→Handy) |
 
+## Festlegungen (Stand 2026-10-23)
+
+- **Zugang:** Der WLAN-Hotspot ist **passwortgeschützt**. Besucher verbinden sich
+  per **QR-Code**, der SSID + Passwort enthält (ein Scan genügt).
+- **Steuerung:** **Jeder** Verbundene darf steuern — keine App-seitige
+  Zugriffssperre, keine „nur einer steuert"-Logik. Schutz allein über das
+  WLAN-Passwort. Alle verbundenen Geräte sehen denselben Status.
+
 ## Kurzüberblick
 
 - Der ESP32 ist ein **WLAN-Access-Point** (eigener Hotspot, kein Internet nötig).

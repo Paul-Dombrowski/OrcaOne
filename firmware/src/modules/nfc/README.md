@@ -15,11 +15,18 @@ docs/ARBEITSWEISE.md · diese README · core/Module.h · storage/README.md
 **Rolle:** Sensor (Tag lesen) **und** Aktor (Tag beschreiben/klonen).
 `name()` = `"nfc"`.
 
+**Reichweite/Technik:** PN532 arbeitet auf **13,56 MHz** und deckt damit sowohl
+klassische **RFID-Tags** (MIFARE Classic/Ultralight, Hotelkarten) als auch **NFC**
+ab. **Nicht** unterstützt: 125-kHz-Karten/Fobs (EM4100 u. Ä.) — dafür bräuchte es
+einen anderen Leser.
+
 ## Was es können soll
 
 - Einen in die Nähe gehaltenen NFC/RFID-Tag **lesen** (UID + Dateninhalt).
 - Gelesene Daten zwischenspeichern und auf einen anderen (beschreibbaren) Tag
-  **schreiben** → „klonen".
+  **schreiben** → „klonen". *(Hinweis: Eine 1:1-Kopie inklusive der fest
+  eingebrannten UID geht nur mit speziellen „magic"-Karten; normal lässt sich nur
+  der beschreibbare Inhalt kopieren.)*
 - Gelesene UID an Display und Handy melden.
 - Bis zu **3 Tags** speichern (`NFC_SLOT_COUNT` in [`../../config.h`](../../config.h)).
 

@@ -20,8 +20,13 @@ Adresse 0x3C). **Bibliothek:** `U8g2`.
 
 ## Was es können soll
 
-- Das aktuelle **Menü** zeichnen (wird vom `MenuController` in `core/` gefüttert).
-- Statuswerte anzeigen (z. B. zuletzt gelesene NFC-UID, aktueller Modus).
+- Das aktuelle **Menü** zeichnen (wird vom `MenuController` in `core/` gefüttert),
+  mit der aktuellen Auswahl **hervorgehoben**. Das OLED ist **einfarbig**, daher
+  ist „hervorgehoben" ein **invertierter Balken** (dunkle Schrift auf hellem Grund),
+  keine Farbe.
+- **Status-Screen:** Ist man in einem Modus, in dem es nichts auszuwählen gibt,
+  wird statt eines Menüs nur die Live-Statusinfo angezeigt (z. B. „Warte auf
+  Signal…", letzte NFC-UID, aktueller Modus).
 - Einfache Rückmeldungen („IR gespeichert", „Automatik AN").
 
 ## Schnittstelle
@@ -31,8 +36,12 @@ Das Display ist ein Dienst für die anderen Teile. Sinnvolle Zusatzmethoden
 
 ```cpp
 void showMenu(const char* title, const char* items[], int count, int selected);
-void showMessage(const char* text);
+void showStatus(const char* title, const char* lines[], int count); // Status-Screen
+void showMessage(const char* text);                                  // kurze Rückmeldung
 ```
+
+`showMenu` hebt die Zeile `selected` invertiert hervor; `showStatus` zeigt reine
+Infozeilen ohne Auswahl.
 
 - `update()` übernimmt das eigentliche Zeichnen (U8g2 arbeitet mit einem
   Puffer: Inhalt setzen, dann einmal `display.sendBuffer()`), nicht-blockierend.

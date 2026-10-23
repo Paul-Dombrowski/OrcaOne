@@ -1,11 +1,13 @@
 # Web-API: Nachrichtenformat Handy ↔ ESP32
 
 **Verbindlicher Vertrag** zwischen Firmware (`firmware/src/network/`) und
-Weboberfläche (`web/js/`). Beide Seiten müssen sich exakt daran halten. Wer an
-einer Seite arbeitet, gibt einer KI diese Datei als Kontext mit.
+Weboberfläche (`firmware/web/js/`). Beide Seiten müssen sich exakt daran halten.
+Wer an einer Seite arbeitet, gibt einer KI diese Datei als Kontext mit.
 
 - **Transport:** WebSocket unter `ws://<esp32-ip>/ws`
 - **Format:** JSON (Text-Frames)
+- **Zugriff:** keine App-seitige Zugriffskontrolle — jedes verbundene Handy darf
+  Befehle senden. Schutz allein über das WLAN-Passwort (siehe `README.md`).
 
 ---
 
@@ -57,7 +59,8 @@ Die Weboberfläche sendet bei Nutzeraktionen ein Befehls-JSON:
 | `nfc` | `clone` | – | lesen + zum Schreiben vormerken |
 | `ir` | `record` | `{ "slot": n }` | IR-Signal in Slot aufnehmen |
 | `ir` | `send` | `{ "slot": n }` | IR-Signal aus Slot senden |
-| `ir` | `stop` | – | Aufnahme abbrechen |
+| `ir` | `shutoff` | – | [E] Hersteller-Ausschaltcodes nacheinander senden |
+| `ir` | `stop` | – | Aufnahme oder Shut-Off-Sequenz abbrechen |
 | `jammer` | `start` / `stop` | – | 2,4-GHz-Modul an/aus (abgestimmter Rahmen) |
 
 > Diese Tabelle wächst mit den Modulen. Neue Befehle hier eintragen **und** im

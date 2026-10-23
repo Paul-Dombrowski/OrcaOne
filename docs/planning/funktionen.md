@@ -5,14 +5,15 @@ später gebaut und geprüft wird. Noch **keine** Arbeitsaufträge, sondern der
 Leistungsumfang.
 
 Kennzeichnung: **[P]** = Pflicht (für Aufgabe/Note nötig) · **[E]** = Erweiterung
-(wenn Zeit bleibt). Vorschlag — bitte als Gruppe bestätigen oder ändern.
+(wenn Zeit bleibt). **Stand: in der Gruppe durchgesprochen (2026-10-23).**
 
 ---
 
-## nfc — NFC/RFID
+## nfc — NFC/RFID (PN532, 13,56 MHz: MIFARE/Hotelkarten/NFC — kein 125 kHz)
 - **[P]** Tag lesen: UID erfassen und an Display + Handy melden.
 - **[P]** Tag beschreiben: gespeicherte Daten auf einen beschreibbaren Tag schreiben.
 - **[P]** Klonen: lesen → zwischenspeichern → auf anderen Tag schreiben.
+  *(1:1-Kopie inkl. UID nur mit speziellen „magic"-Karten; sonst nur Inhalt.)*
 - **[P]** Bis zu 3 Tags in Slots halten (`NFC_SLOT_COUNT`).
 - **[E]** Gespeicherte Tags dauerhaft sichern (über Storage, wenn SD vorhanden).
 - **[E]** Registrierte Tags für die Automatik verwalten (Liste „registered").
@@ -21,19 +22,23 @@ Kennzeichnung: **[P]** = Pflicht (für Aufgabe/Note nötig) · **[E]** = Erweite
 - **[P]** IR-Signal aufnehmen (empfangen) und in einem Slot speichern.
 - **[P]** Gespeichertes Signal senden (Replay).
 - **[P]** Bis zu 3 Signale in Slots halten (`IR_SLOT_COUNT`).
+- **[E]** **Shut-Off-Modus:** eingebaute Liste von Hersteller-Ausschaltcodes
+  nacheinander senden („TV-B-Gone"-Prinzip).
 - **[E]** Signale dauerhaft sichern (über Storage, wenn SD vorhanden).
 - **[E]** Protokoll/Name des Signals anzeigen.
 
-## display — OLED 1,3"
-- **[P]** Menü zeichnen (vom MenuController gefüttert).
-- **[P]** Statuswerte anzeigen (Modus, letzte UID, Meldungen).
+## display — OLED 1,3" (einfarbig, 128×64)
+- **[P]** Menüs zeichnen mit **hervorgehobener** (invertierter) Auswahl.
+- **[P]** Ist in einem Modus nichts auszuwählen: stattdessen **Status-Screen** mit
+  Live-Werten anzeigen.
 - **[P]** Startbildschirm: Gerätename + WLAN-Status + Modus.
 - **[E]** Icons/Grafiken auf dem Display darstellen.
+- Genaues Aussehen der Screens: bewusst offen gelassen.
 
 ## input — Drehgeber
-- **[P]** Drehen erkennen (hoch/runter im Menü).
-- **[P]** Tastendruck erkennen (Auswahl/Bestätigen), entprellt.
-- **[E]** Langer Druck = „zurück".
+- **[P]** Drehen → Auswahl im Menü bewegen.
+- **[P]** Kurzer Druck → auswählen / in den Modus gehen (entprellt).
+- **[P]** Langer Druck → zurück (auch aus einem Status-Screen).
 
 ## jammer — 2,4 GHz (NRF24L01+)
 - **[P]** Über Menü/Handy an- und abschaltbar, sicherer Aus-Zustand beim Start.
@@ -55,9 +60,11 @@ Kennzeichnung: **[P]** = Pflicht (für Aufgabe/Note nötig) · **[E]** = Erweite
 - **[P]** Menü aus den registrierten Modulen aufbauen und bedienen.
 
 ## network — WLAN / Web
-- **[P]** WLAN-Access-Point ohne Internet.
+- **[P]** WLAN-Access-Point **mit Passwort** (Besucher verbinden per QR-Code), ohne Internet.
 - **[P]** Weboberfläche ausliefern.
 - **[P]** Status-Push (~500 ms) + Befehle empfangen (WebSocket).
+- **[P]** **Jeder verbundene Besucher darf steuern** — keine App-seitige
+  Zugriffssperre; Schutz allein über das WLAN-Passwort.
 
 ---
 

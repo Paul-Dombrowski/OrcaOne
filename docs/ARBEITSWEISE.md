@@ -37,7 +37,7 @@ richtigen Ort an.
 | Neue Gerätefunktion (Firmware-Modul) | `firmware/src/modules/<name>/` | `modules/buzzer/` |
 | Gemeinsamer Firmware-Dienst (von mehreren Modulen genutzt) | `firmware/src/<dienst>/` | `storage/` |
 | Dokumentation / Planung | `docs/<thema>/` | `docs/hardware/` |
-| Quellcode der Weboberfläche | `web/` | `web/js/app.js` |
+| Quellcode der Weboberfläche | `firmware/web/` | `firmware/web/js/app.js` |
 
 **Fallback-Regel (wichtig):** Fehlt für etwas eine Kategorie, entscheide nach Art:
 - Es ist eine **Gerätefunktion** → unter `firmware/src/modules/<name>/`.

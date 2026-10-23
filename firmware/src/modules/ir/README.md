@@ -22,6 +22,9 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
   zur Universalfernbedienung.
 - Mehrere Signale in Speicherplätzen (Slots) ablegen — **3 Slots**
   (`IR_SLOT_COUNT` in [`../../config.h`](../../config.h)).
+- **[Erweiterung] Shut-Off-Modus:** eine eingebaute Liste von Ausschalt-Codes
+  verschiedener Hersteller nacheinander senden (Prinzip „TV-B-Gone"). Ein Befehl →
+  das Gerät feuert die Power-Off-Codes der Reihe nach ab.
 
 ## Befehle (`handleCommand`)
 
@@ -29,7 +32,8 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
 |---|---|---|
 | `record` | `{ "slot": <n> }` | nächstes empfangenes Signal in Slot `n` speichern |
 | `send` | `{ "slot": <n> }` | Signal aus Slot `n` senden |
-| `stop` | – | Aufnahme-Bereitschaft abbrechen |
+| `shutoff` | – | **[E]** eingebaute Hersteller-Ausschaltcodes nacheinander senden |
+| `stop` | – | laufende Aufnahme oder Shut-Off-Sequenz abbrechen |
 
 ## Status (`statusJson`)
 
@@ -54,3 +58,6 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
 - [ ] `IrModule.h` / `.cpp` anlegen.
 - [ ] `record` → empfangenes Signal im Serial-Monitor ausgeben.
 - [ ] `send` → gespeichertes Signal zurückspielen und an echtem Gerät testen.
+- [ ] **[E]** `shutoff`: Tabelle bekannter Power-Off-Codes anlegen und nacheinander
+      senden — **nicht-blockierend** als Zustandsautomat (ein Code pro `update()`,
+      kleine Pause über `millis()`), damit das Gerät bedienbar bleibt.
