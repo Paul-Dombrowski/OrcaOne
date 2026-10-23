@@ -9,8 +9,17 @@
 // ============================================================================
 
 // ---- WLAN: der ESP32 macht einen eigenen Hotspot auf (kein Internet noetig) ----
+// Das AP-Passwort steht NICHT im Repo, sondern in secrets.h (git-ignoriert).
+// Vorlage: secrets.example.h nach secrets.h kopieren und Wert eintragen.
+// Hinweis: Dieses Passwort ist bewusst ein geteiltes Demo-Passwort - Besucher
+// brauchen es, um sich mit dem Hotspot zu verbinden (kein echtes Geheimnis).
+#if __has_include("secrets.h")
+  #include "secrets.h"
+#else
+  #define WIFI_AP_PASSWORD "changeme123"   // Fallback, bitte secrets.h anlegen
+#endif
+
 #define WIFI_AP_SSID      "OrcaOne"
-#define WIFI_AP_PASSWORD  "orca12345"   // mind. 8 Zeichen; vor Demo ggf. aendern
 #define WEBSERVER_PORT    80
 
 // ---- I2C-Bus (geteilt von OLED-Display und PN532-NFC) ----

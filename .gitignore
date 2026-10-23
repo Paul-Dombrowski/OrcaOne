@@ -6,6 +6,9 @@ firmware/.pio/
 .vscode/
 .idea/
 
+# Geheimnisse (nur lokal; Vorlage ist secrets.example.h)
+firmware/src/secrets.h
+
 # Betriebssystem
 Thumbs.db
 .DS_Store
