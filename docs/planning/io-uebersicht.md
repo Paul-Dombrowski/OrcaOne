@@ -20,17 +20,25 @@ Alle Signale des Systems, getrennt nach **Eingängen (Sensoren)** und
 | NFC-Writer (PN532) | `nfc` | I2C (21/22) | M | Daten auf einen Tag schreiben |
 | 2,4-GHz-Modul (NRF24L01+) | `jammer` | SPI (18/19/23/17/5) | M | Störsender (abgestimmter Rahmen) |
 
-## Automatische Funktion (Pflicht)
+## Automatische Funktion (Pflicht) — festgelegt
 
-**Regel (Vorschlag):**
-> *Wenn* im Automatik-Modus ein **registrierter NFC-Tag** erkannt wird (Eingang,
-> Sensor `nfc`), *dann* sendet das Gerät automatisch ein hinterlegtes IR-Signal
-> (Ausgang, Aktor `ir`) **und** zeigt „Zugang erkannt" auf Display + Handy.
+**Hauptregel (benotete Automatik):**
+> *Wenn* im Automatik-Modus am NFC-Leser (Sensor `nfc`) ein **registrierter Tag**
+> erkannt wird — d. h. die gelesene UID == `AUTO_TRIGGER_UID` aus `config.h` —,
+> *dann* sendet OrcaOne automatisch das IR-Signal aus Slot `AUTO_ACTION_IR_SLOT`
+> (Aktor `ir`) **und** zeigt „Zugang erkannt" auf OLED (Aktor `display`) und
+> Handy.
+
+Damit löst ein **Sensoreingang (NFC)** selbstständig einen **Aktor (IR-LED)** aus
+— genau die geforderte „automatische Reaktion auf einen Sensorwert".
 
 - Realisiert im `ModeManager` ([`../../firmware/src/core/`](../../firmware/src/core/)).
 - Der **Automatik-Modus** wird per Handy (`system/setMode`) oder im Menü ein-/
-  ausgeschaltet. Im Manuell-Modus greift die Regel nicht.
+  ausgeschaltet. Im **Manuell**-Modus greift die Regel nicht; dann läuft alles nur
+  über Menü/Handy.
+- Die konkrete UID wird beim Aufbau eingetragen (per „nfc read" im Serial-Monitor
+  ablesen, in `config.h` → `AUTO_TRIGGER_UID` eintragen).
 
-> Die konkrete Regel ist mit der Gruppe final abzustimmen — wichtig ist nur, dass
-> ein **Sensorwert automatisch einen Aktor auslöst** und sich der Automatik-Modus
-> umschalten lässt.
+**Optionale zweite Regel (Erweiterung, nicht Pflicht):** Empfängt der IR-Empfänger
+(Sensor `ir`) im Auto-Modus einen hinterlegten Fernbedienungs-Code, sendet das
+Gerät eine gespeicherte Antwort. Nur umsetzen, wenn Zeit bleibt.

@@ -11,6 +11,7 @@
 - Gelesene Daten zwischenspeichern und auf einen anderen (beschreibbaren) Tag
   **schreiben** → „klonen".
 - Gelesene UID an Display und Handy melden.
+- Bis zu **3 Tags** speichern (`NFC_SLOT_COUNT` in [`../../config.h`](../../config.h)).
 
 ## Befehle (`handleCommand`)
 

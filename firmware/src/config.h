@@ -52,3 +52,12 @@
 
 // ---- Timings ----
 #define STATUS_PUSH_MS   500   // wie oft der Status ans Handy geschickt wird (ms)
+
+// ---- Speicher-Slots (festgelegt) ----
+#define IR_SLOT_COUNT     3    // Anzahl speicherbarer IR-Signale
+#define NFC_SLOT_COUNT    3    // Anzahl speicherbarer NFC-Tags
+
+// ---- Automatik: registrierte Tag-UID, die im Auto-Modus die Aktion ausloest ----
+// Beim Aufbau durch eine echte Tag-UID ersetzen (vom "nfc read" im Serial-Monitor).
+#define AUTO_TRIGGER_UID  "04A1B2C3"
+#define AUTO_ACTION_IR_SLOT  1   // welches IR-Signal dann automatisch gesendet wird

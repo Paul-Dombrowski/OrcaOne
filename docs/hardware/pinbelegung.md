@@ -1,8 +1,9 @@
 # Pinbelegung ESP32
 
-> **Vorschlag** — muss beim realen Aufbau geprüft und ggf. angepasst werden.
-> Bei Änderungen **immer** auch [`../../firmware/src/config.h`](../../firmware/src/config.h)
-> anpassen (dort stehen dieselben Werte als `#define`).
+> **Festgelegt** (Stand der Planung). Beim realen Aufbau verifizieren; falls ein
+> Pin geändert werden muss, **immer** auch
+> [`../../firmware/src/config.h`](../../firmware/src/config.h) anpassen — dort
+> stehen dieselben Werte als `#define`.
 
 Annahme: ESP32 DevKit (30-Pin). Alle Module an **3,3 V** und gemeinsame **GND**.
 

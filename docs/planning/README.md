@@ -11,6 +11,7 @@ kommunizieren die Teile?*
 | `concept.jpeg` | Ursprüngliche Ideenskizze (Mindmap) der Gruppe |
 | `io-uebersicht.md` | Ein-/Ausgangsübersicht: alle Sensoren & Aktoren, automatisch/manuell |
 | `blockschaltbild.md` | Kommunikationswege zwischen Handy, ESP32 und Peripherie |
+| `menuestruktur.md` | Festgelegte Bedienstruktur des OLED-Menüs (Drehgeber) |
 
 ## Projektidee in einem Satz
 
@@ -20,10 +21,24 @@ am Smartphone ferngesteuert wird.
 
 ## Nutzen / Besucherinteraktion (für Aufgabe 5)
 
-Besucher können am eigenen Stand gefahrlos ausprobieren, wie ein IoT-Gerät Daten
-erfasst und über WLAN mit dem Handy austauscht — z. B. einen (eigenen) RFID-Tag
-einlesen und den Wert live am Handy erscheinen sehen, oder ein IR-Signal
-aufnehmen und abspielen. Zugang zur Weboberfläche per **QR-Code** (Aufgabe 5).
+**Nutzen:** OrcaOne macht abstrakte IoT-Konzepte anfassbar. An einem Gerät sieht
+man alle drei Kernschritte eines IoT-Systems zugleich: *erfassen* (NFC/IR-Sensor),
+*übertragen* (WLAN zum Handy) und *auslösen* (IR-LED, Anzeige). Gleichzeitig zeigt
+es, wie dieselbe Technik hinter Alltagsdingen wie Zutrittskarten und
+Fernbedienungen steckt.
+
+**Konkreter Ablauf am Stand:**
+1. Besucher verbindet sein Handy per **QR-Code** mit dem WLAN „OrcaOne" und öffnet
+   die Weboberfläche.
+2. Er hält einen (eigenen oder bereitgestellten) RFID-Tag an das Gerät — die UID
+   erscheint **live** auf OLED **und** Handy, ohne Neuladen.
+3. Er nimmt mit einer Fernbedienung ein IR-Signal auf und spielt es per Knopfdruck
+   am Handy wieder ab (z. B. schaltet einen bereitgestellten Fernseher).
+4. Er schaltet den **Automatik-Modus** ein: ein registrierter Tag löst nun
+   selbstständig eine Aktion aus → zeigt den Unterschied manuell ↔ automatisch.
+
+Das deckt zugleich die Pflicht „Besucher selbst steuern lassen" und
+„IoT-Kommunikation erläutern" aus Aufgabe 5 ab.
 
 ## Abdeckung der Mindestanforderungen
 
@@ -39,4 +54,5 @@ aufnehmen und abspielen. Zugang zur Weboberfläche per **QR-Code** (Aufgabe 5).
 | Automatik an/aus per Handy | Befehl `system/setMode` |
 | läuft ohne Internet | ESP32 spannt eigenes WLAN auf |
 
-> Details zur Automatik-Regel mit der Gruppe final festlegen.
+Die Automatik-Regel ist in [`io-uebersicht.md`](io-uebersicht.md) verbindlich
+festgelegt (registrierter NFC-Tag → IR-Signal + Anzeige).

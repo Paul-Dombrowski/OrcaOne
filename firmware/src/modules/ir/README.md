@@ -10,7 +10,8 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
 - Ein IR-Signal einer Fernbedienung **aufnehmen** (empfangen und speichern).
 - Ein gespeichertes Signal auf Befehl wieder **senden** (Replay) → OrcaOne wird
   zur Universalfernbedienung.
-- Mehrere Signale in Speicherplätzen (Slots) ablegen.
+- Mehrere Signale in Speicherplätzen (Slots) ablegen — **3 Slots**
+  (`IR_SLOT_COUNT` in [`../../config.h`](../../config.h)).
 
 ## Befehle (`handleCommand`)
 
