@@ -1,0 +1,43 @@
+/* Mobilfreundliches Grund-Styling. Bewusst schlicht gehalten -
+   Gestaltung/Verschoenerung ist Teil von Aufgabe 4. */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, Arial, sans-serif;
+  background: #12151c;
+  color: #e8eaf0;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: #1b2029;
+}
+
+header h1 { margin: 0; font-size: 1.4rem; }
+
+/* Verbindungsanzeige */
+.conn { padding: 4px 10px; border-radius: 999px; font-size: .85rem; }
+.conn.on  { background: #1e7d3a; }   /* verbunden */
+.conn.off { background: #8a2b2b; }   /* getrennt */
+
+main { padding: 16px; display: grid; gap: 16px; max-width: 520px; margin: 0 auto; }
+
+.card { background: #1b2029; border-radius: 12px; padding: 16px; }
+.card h2 { margin: 0 0 8px; font-size: 1.1rem; }
+
+/* grosse, gut tippbare Buttons (besucherfreundlich) */
+button {
+  font-size: 1rem;
+  padding: 12px 16px;
+  margin: 6px 6px 0 0;
+  border: none;
+  border-radius: 8px;
+  background: #2d6cdf;
+  color: #fff;
+}
+button:active { background: #1f4fa8; }

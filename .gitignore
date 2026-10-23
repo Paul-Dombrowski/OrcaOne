@@ -1,0 +1,11 @@
+# PlatformIO Build-Artefakte (werden lokal erzeugt, nicht ins Repo)
+.pio/
+firmware/.pio/
+
+# IDE
+.vscode/
+.idea/
+
+# Betriebssystem
+Thumbs.db
+.DS_Store

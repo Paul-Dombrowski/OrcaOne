@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <!-- mobilfreundlich: Seite passt sich der Handy-Bildschirmbreite an -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrcaOne</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>OrcaOne</h1>
+    <!-- zeigt an, ob die Verbindung zum ESP32 steht -->
+    <span id="conn" class="conn off">getrennt</span>
+  </header>
+
+  <main>
+    <!-- Betriebsmodus: Automatik an/aus (Pflicht-Anforderung) -->
+    <section class="card">
+      <h2>Modus</h2>
+      <p>Aktuell: <strong id="mode">–</strong></p>
+      <button id="btn-auto">Automatik AN</button>
+      <button id="btn-manual">Automatik AUS</button>
+    </section>
+
+    <!-- NFC-Status -->
+    <section class="card">
+      <h2>NFC / RFID</h2>
+      <p>Letzte UID: <strong id="nfc-uid">–</strong></p>
+      <button data-module="nfc" data-action="read">Tag lesen</button>
+    </section>
+
+    <!-- IR-Steuerung (Beispiel für einen vom Handy steuerbaren Aktor) -->
+    <section class="card">
+      <h2>Infrarot</h2>
+      <p>Status: <strong id="ir-state">–</strong></p>
+      <button data-module="ir" data-action="send" data-slot="1">Signal 1 senden</button>
+      <button data-module="ir" data-action="record" data-slot="1">Signal 1 aufnehmen</button>
+    </section>
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
