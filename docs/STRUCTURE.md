@@ -17,9 +17,6 @@ OrcaOne/
 │  ├─ planning/              → Aufgabe 1: Idee, I/O, Blockschaltbild, Menü, Funktionen
 │  ├─ hardware/              → Aufgabe 2: Bauteile, Pinbelegung, Verkabelung
 │  ├─ kommunikation/         → Aufgabe 3: WLAN, Web-API (WebSocket)
-│  ├─ design/               → Gestaltungs-Vorlagen (kein Code)
-│  │  ├─ display/            → Layouts/Icons/Bitmaps fürs OLED
-│  │  └─ web/                → Mockups für die Handy-Oberfläche
 │  └─ superpowers/specs/     → Design-Dokumente (Architektur-Entscheidungen)
 │
 ├─ firmware/                 → der Code, der auf dem ESP32 läuft (C++/Arduino)
@@ -56,15 +53,15 @@ OrcaOne/
           │  WLAN (WebSocket/HTTP)            │
           ▼                                   ▼
    ┌─────────────────────────────────────────────────────┐
-   │  network/   (Webserver, verteilt Befehle & Status)   │
+   │  network/   (Webserver, verteilt Befehle & Status)  │
    └───────────────┬─────────────────────────────────────┘
                    │  einheitlicher Modul-Vertrag
    ┌───────────────▼─────────────────────────────────────┐
-   │  core/   ModeManager (Auto/Manuell) + MenuController │
+   │  core/   ModeManager (Auto/Manuell) + MenuController│
    └───────────────┬─────────────────────────────────────┘
                    │  begin() / update() / statusJson() / handleCommand()
    ┌───────────────▼─────────────────────────────────────┐
-   │  modules/   nfc · ir · jammer · display · input      │
+   │  modules/   nfc · ir · jammer · display · input     │
    └───────────────┬─────────────────────────────────────┘
                    │
               [ Hardware: PN532, IR, NRF24, OLED, Encoder ]

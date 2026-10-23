@@ -36,15 +36,13 @@ richtigen Ort an.
 |---|---|---|
 | Neue Gerätefunktion (Firmware-Modul) | `firmware/src/modules/<name>/` | `modules/buzzer/` |
 | Gemeinsamer Firmware-Dienst (von mehreren Modulen genutzt) | `firmware/src/<dienst>/` | `storage/` |
-| Design-Dateien fürs **OLED-Display** (Layouts, Icons, Bitmaps-Quelle, Mockups) | `docs/design/display/` | `docs/design/display/hauptmenue.png` |
-| Design-Dateien für die **Handy-Weboberfläche** | `docs/design/web/` | `docs/design/web/startseite.png` |
 | Dokumentation / Planung | `docs/<thema>/` | `docs/hardware/` |
 | Quellcode der Weboberfläche | `web/` | `web/js/app.js` |
 
 **Fallback-Regel (wichtig):** Fehlt für etwas eine Kategorie, entscheide nach Art:
-- Es ist **Gestaltung/Aussehen** → unter `docs/design/<bereich>/`.
 - Es ist eine **Gerätefunktion** → unter `firmware/src/modules/<name>/`.
-- Es ist **Doku** → unter `docs/<thema>/`.
+- Es ist **Doku/Planung** → unter `docs/<thema>/`.
+- Passt es in keine Kategorie → **nicht raten, nachfragen.**
 
 Lege dafür einen **neuen Ordner mit eigener `README.md`** an (§3-Prinzip gilt
 sinngemäß). **Niemals** eine Datei „irgendwohin" oder ins Projekt-Stammverzeichnis
@@ -65,7 +63,6 @@ docs/ARBEITSWEISE.md · diese README · core/Module.h · (bei Speichern: storage
 - Eigene Dateien:   firmware/src/modules/<name>/   (nur hier Code dieses Moduls)
 - Einstellungen:    firmware/src/config.h          (Pins/Konstanten dieses Moduls)
 - Speicher-Namensraum: "<name>"                    (über Storage, siehe storage/README.md)
-- Design-Dateien (falls vorhanden): docs/design/display/  bzw. docs/design/web/
 ```
 
 Danach folgen: *Was es können soll* → *Befehle (`handleCommand`)* → *Status

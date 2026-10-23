@@ -28,7 +28,7 @@ Kennzeichnung: **[P]** = Pflicht (für Aufgabe/Note nötig) · **[E]** = Erweite
 - **[P]** Menü zeichnen (vom MenuController gefüttert).
 - **[P]** Statuswerte anzeigen (Modus, letzte UID, Meldungen).
 - **[P]** Startbildschirm: Gerätename + WLAN-Status + Modus.
-- **[E]** Icons/Grafiken aus den Vorlagen in `docs/design/display/`.
+- **[E]** Icons/Grafiken auf dem Display darstellen.
 
 ## input — Drehgeber
 - **[P]** Drehen erkennen (hoch/runter im Menü).

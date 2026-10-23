@@ -7,7 +7,6 @@ docs/ARBEITSWEISE.md · diese README · core/Module.h
 - Eigene Dateien:   firmware/src/modules/display/   (nur hier Code dieses Moduls)
 - Einstellungen:    firmware/src/config.h            (Display-Pins/Adresse)
 - Speicher-Namensraum: — (speichert nichts)
-- Design-Vorlagen (Layouts, Icons, Bitmaps): docs/design/display/
 
 ---
 
