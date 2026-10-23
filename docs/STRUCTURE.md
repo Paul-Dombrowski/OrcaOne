@@ -20,7 +20,11 @@ OrcaOne/
 │  └─ superpowers/specs/     → Design-Dokumente (Architektur-Entscheidungen)
 │
 ├─ firmware/                 → der Code, der auf dem ESP32 läuft (C++/Arduino)
-│  ├─ platformio.ini         → Build-Konfiguration + Bibliotheken
+│  ├─ platformio.ini         → Build-Konfiguration + Bibliotheken (flasht web/ aufs Gerät)
+│  ├─ web/                   → Aufgabe 4: Weboberfläche fürs Handy (wird auf den ESP32 geladen)
+│  │  ├─ index.html          → Bedienoberfläche
+│  │  ├─ css/                → Styling
+│  │  └─ js/                 → Logik + WebSocket-Verbindung zum ESP32
 │  └─ src/
 │     ├─ main.cpp            → Einstiegspunkt: setup() + loop(), verdrahtet alles
 │     ├─ config.h            → zentrale Einstellungen (Pins, WLAN, Slots) — Board-Stelle
@@ -34,11 +38,6 @@ OrcaOne/
 │     │  ├─ input/           → Drehgeber (Menü-Navigation)
 │     │  └─ sdcard/          → Micro-SD (Add-on, liefert SD-Backend für storage/)
 │     └─ network/            → WLAN-Access-Point + Webserver + WebSocket
-│
-├─ web/                      → Aufgabe 4: Weboberfläche fürs Handy (Quellcode)
-│  ├─ index.html             → Bedienoberfläche
-│  ├─ css/                   → Styling
-│  └─ js/                    → Logik + WebSocket-Verbindung zum ESP32
 │
 └─ task/                     → Original-Projektauftrag der Schule (nicht ändern)
 ```
@@ -84,7 +83,7 @@ und blockiert euch nicht gegenseitig.
 |---|---|---|
 | **Hardware + Firmware-Module** | `firmware/src/modules/` | Aufgabe 2 (20 P.) |
 | **IoT-Kommunikation** | `firmware/src/network/`, `docs/kommunikation/` | Aufgabe 3 (25 P.) |
-| **Weboberfläche** | `web/` | Aufgabe 4 (15 P.) |
+| **Weboberfläche** | `firmware/web/` | Aufgabe 4 (15 P.) |
 | gemeinsam | `core/`, `docs/planning/`, `docs/` | Aufgabe 1 (10 P.) + Doku (5 P.) |
 
 > Das ist nur ein Vorschlag — teilt es so auf, wie es für euch passt. Wichtig ist,

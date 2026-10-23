@@ -27,15 +27,15 @@ firmware/
 
 - **Build** (Haken-Symbol unten) → kompiliert den Code.
 - **Upload** (Pfeil-Symbol) → flasht die Firmware auf den angeschlossenen ESP32.
-- **Upload Filesystem Image** → lädt die Weboberfläche (`data/`) auf den ESP32.
+- **Upload Filesystem Image** → lädt die Weboberfläche (`web/`) auf den ESP32.
 - **Monitor** (Stecker-Symbol) → zeigt die `Serial.println`-Ausgaben (115200 Baud).
 
 ## Wie die Weboberfläche auf den ESP32 kommt
 
-Die Dateien, die der Browser lädt, müssen im Flash des ESP32 liegen. Workflow:
-der Quellcode wird in [`../web/`](../web/) bearbeitet und von dort nach
-`firmware/data/` kopiert, bevor man „Upload Filesystem Image" ausführt. (Siehe
-[`../web/README.md`](../web/README.md).)
+Die Dateien, die der Browser lädt, müssen im Flash des ESP32 liegen. Sie liegen
+direkt in [`web/`](web/); `platformio.ini` ist so eingestellt, dass **genau dieser
+Ordner** beim „Upload Filesystem Image" aufs Gerät geladen wird — **kein
+Kopierschritt** nötig. (Siehe [`web/README.md`](web/README.md).)
 
 ## Reihenfolge der Umsetzung (empfohlen)
 

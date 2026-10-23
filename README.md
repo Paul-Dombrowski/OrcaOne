@@ -33,7 +33,7 @@ Automatik, bidirektionale Kommunikation …) stehen in
    Projekts und **wo was liegt**.
 2. Deinen Arbeitsbereich finden (jede Person betreut eigene Module/Ordner):
    - Firmware-Module: [`firmware/src/modules/`](firmware/src/modules/)
-   - Weboberfläche: [`web/`](web/)
+   - Weboberfläche: [`firmware/web/`](firmware/web/)
    - Doku/Planung: [`docs/`](docs/)
 3. In **jedem** Ordner liegt eine `README.md`, die genau beschreibt, was dort
    hineingehört und wie es mit dem Rest zusammenspielt. Diese Beschreibungen sind

@@ -1,4 +1,4 @@
-# web/ — Weboberfläche fürs Smartphone (Aufgabe 4 — 15 Punkte)
+# firmware/web/ — Weboberfläche fürs Smartphone (Aufgabe 4 — 15 Punkte)
 
 Die Bedienoberfläche, die Besucher im Browser ihres Handys öffnen. Reines
 HTML/CSS/JavaScript — **keine** Installation nötig, läuft im Browser.
@@ -13,16 +13,18 @@ HTML/CSS/JavaScript — **keine** Installation nötig, läuft im Browser.
 
 Dieses Startgerüst **verbindet sich bereits** mit dem ESP32, zeigt den Status an
 und kann Befehle senden (Modus umschalten, IR senden). Es setzt den Vertrag aus
-[`../docs/kommunikation/web-api.md`](../docs/kommunikation/web-api.md) um — diese
-Datei beim Weiterbauen immer als Referenz nehmen.
+[`../../docs/kommunikation/web-api.md`](../../docs/kommunikation/web-api.md) um —
+diese Datei beim Weiterbauen immer als Referenz nehmen.
 
 ## Wie es aufs Handy kommt
 
-1. Dateien aus `web/` nach `firmware/data/` kopieren.
-2. In PlatformIO **„Upload Filesystem Image"** ausführen → Dateien landen im
-   ESP32-Flash (LittleFS).
-3. Der Webserver (`firmware/src/network/`) liefert sie aus.
-4. Handy mit dem WLAN **OrcaOne** verbinden und die IP des ESP32 im Browser
+Dieser Ordner (`firmware/web/`) **ist** der Upload-Ordner — `platformio.ini` ist so
+eingestellt. Kein Kopieren nötig.
+
+1. In PlatformIO **„Upload Filesystem Image"** ausführen → der Inhalt von `web/`
+   landet im ESP32-Flash (LittleFS).
+2. Der Webserver (`firmware/src/network/`) liefert die Dateien aus.
+3. Handy mit dem WLAN **OrcaOne** verbinden und die IP des ESP32 im Browser
    öffnen (steht im Serial-Monitor). Für die Demo: **QR-Code** auf diese Adresse
    (Aufgabe 5).
 
