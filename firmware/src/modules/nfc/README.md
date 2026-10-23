@@ -1,5 +1,15 @@
 # Modul: nfc — NFC/RFID lesen, schreiben, klonen
 
+## Vor dem Start lesen
+docs/ARBEITSWEISE.md · diese README · core/Module.h · storage/README.md
+
+## Was ändere ich wo / Was speichere ich wie
+- Eigene Dateien:   firmware/src/modules/nfc/   (nur hier Code dieses Moduls)
+- Einstellungen:    firmware/src/config.h        (Pins/Konstanten dieses Moduls)
+- Speicher-Namensraum: "nfc"                      (über Storage, siehe storage/README.md)
+
+---
+
 **Hardware:** PN532-Modul über I2C (SDA = GPIO21, SCL = GPIO22, Adresse 0x24).
 **Bibliothek:** `Adafruit PN532`.
 **Rolle:** Sensor (Tag lesen) **und** Aktor (Tag beschreiben/klonen).
@@ -35,6 +45,8 @@
   Funktion `readPassiveTargetID(...)` kann mit kurzem Timeout aufgerufen werden;
   pro Durchlauf nur ein kurzer Versuch, dann zurückkehren.
 - Pins/Adresse ausschließlich aus [`../../config.h`](../../config.h) nehmen.
+- Speichern über `Storage.save("nfc", "slot1", jsonText)`; vorher `Storage.available()`
+  prüfen, aber **nie abbrechen**, wenn keine SD da ist (dann nur flüchtig im RAM).
 
 ## Idee zur Handy-Integration
 

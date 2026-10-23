@@ -1,5 +1,16 @@
 # Modul: display — OLED-Ausgabe 1,3"
 
+## Vor dem Start lesen
+docs/ARBEITSWEISE.md · diese README · core/Module.h
+
+## Was ändere ich wo / Was speichere ich wie
+- Eigene Dateien:   firmware/src/modules/display/   (nur hier Code dieses Moduls)
+- Einstellungen:    firmware/src/config.h            (Display-Pins/Adresse)
+- Speicher-Namensraum: — (speichert nichts)
+- Design-Vorlagen (Layouts, Icons, Bitmaps): docs/design/display/
+
+---
+
 **Hardware:** 1,3" OLED (SH1106-Controller) über I2C (SDA = GPIO21, SCL = GPIO22,
 Adresse 0x3C). **Bibliothek:** `U8g2`.
 **Rolle:** Aktor (Ausgabe). `name()` = `"display"`.

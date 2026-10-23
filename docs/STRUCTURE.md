@@ -12,26 +12,33 @@ dazukommst (Mensch oder KI): **diese Datei zuerst lesen.**
 OrcaOne/
 ├─ README.md                 → Projektüberblick, Einstieg für alle
 ├─ docs/                     → gesamte Dokumentation & Planung (kein Code)
+│  ├─ ARBEITSWEISE.md        → ★ VERBINDLICHER STANDARD: zuerst lesen, für alle gleich
 │  ├─ STRUCTURE.md           → DIESE Datei: Aufbau des Projekts
-│  ├─ planning/              → Aufgabe 1: Idee, Ein-/Ausgänge, Blockschaltbild
+│  ├─ planning/              → Aufgabe 1: Idee, I/O, Blockschaltbild, Menü, Funktionen
 │  ├─ hardware/              → Aufgabe 2: Bauteile, Pinbelegung, Verkabelung
-│  └─ kommunikation/         → Aufgabe 3: WLAN, Web-API (REST/WebSocket)
+│  ├─ kommunikation/         → Aufgabe 3: WLAN, Web-API (WebSocket)
+│  ├─ design/               → Gestaltungs-Vorlagen (kein Code)
+│  │  ├─ display/            → Layouts/Icons/Bitmaps fürs OLED
+│  │  └─ web/                → Mockups für die Handy-Oberfläche
+│  └─ superpowers/specs/     → Design-Dokumente (Architektur-Entscheidungen)
 │
 ├─ firmware/                 → der Code, der auf dem ESP32 läuft (C++/Arduino)
 │  ├─ platformio.ini         → Build-Konfiguration + Bibliotheken
 │  └─ src/
 │     ├─ main.cpp            → Einstiegspunkt: setup() + loop(), verdrahtet alles
-│     ├─ config.h            → zentrale Einstellungen (Pins, WLAN-Name, Timings)
+│     ├─ config.h            → zentrale Einstellungen (Pins, WLAN, Slots) — Board-Stelle
 │     ├─ core/               → „Gehirn": Modul-Vertrag, Menü, Auto/Manuell-Modus
+│     ├─ storage/            → zentraler Speicher-Dienst (SD optional, RAM-Fallback)
 │     ├─ modules/            → die einzelnen Funktionen, je ein Unterordner:
 │     │  ├─ nfc/             → NFC/RFID lesen, schreiben, klonen (PN532)
 │     │  ├─ ir/              → IR aufnehmen & senden (KY-022 / KY-005)
 │     │  ├─ jammer/          → 2,4-GHz-Modul (NRF24L01+)
 │     │  ├─ display/         → OLED-Ausgabe (1,3")
-│     │  └─ input/           → Drehgeber (Menü-Navigation)
+│     │  ├─ input/           → Drehgeber (Menü-Navigation)
+│     │  └─ sdcard/          → Micro-SD (Add-on, liefert SD-Backend für storage/)
 │     └─ network/            → WLAN-Access-Point + Webserver + WebSocket
 │
-├─ web/                      → Aufgabe 4: Weboberfläche fürs Handy
+├─ web/                      → Aufgabe 4: Weboberfläche fürs Handy (Quellcode)
 │  ├─ index.html             → Bedienoberfläche
 │  ├─ css/                   → Styling
 │  └─ js/                    → Logik + WebSocket-Verbindung zum ESP32
@@ -91,7 +98,10 @@ und blockiert euch nicht gegenseitig.
 ## 4. Wie man mit einer KI an einem Teil arbeitet
 
 Die anderen KIs sind schwächer und verstehen das große Ganze nicht von selbst.
-Deshalb gilt:
+Deshalb gibt es **einen verbindlichen Standard, den jede KI und jede Person zuerst
+liest**: [`ARBEITSWEISE.md`](ARBEITSWEISE.md). Er regelt Lesereihenfolge,
+Platzierung neuer Dateien, Speichern und die harten Regeln — damit **verschiedene
+KI-Systeme exakt gleich arbeiten**. Konkret heißt das:
 
 1. **Immer die `README.md` des Ordners** mitgeben, an dem gearbeitet wird. Sie
    enthält Zweck, Schnittstelle und ein konkretes To-do.

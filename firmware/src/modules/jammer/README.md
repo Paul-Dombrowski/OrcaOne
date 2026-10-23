@@ -1,5 +1,15 @@
 # Modul: jammer — 2,4-GHz-Modul (NRF24L01+)
 
+## Vor dem Start lesen
+docs/ARBEITSWEISE.md · diese README · core/Module.h
+
+## Was ändere ich wo / Was speichere ich wie
+- Eigene Dateien:   firmware/src/modules/jammer/   (nur hier Code dieses Moduls)
+- Einstellungen:    firmware/src/config.h           (NRF24-SPI-Pins)
+- Speicher-Namensraum: — (speichert nichts)
+
+---
+
 **Hardware:** NRF24L01+ über SPI (SCK = GPIO18, MISO = GPIO19, MOSI = GPIO23,
 CE = GPIO17, CSN = GPIO5). **Bibliothek:** `RF24`.
 **Rolle:** Aktor. `name()` = `"jammer"`.

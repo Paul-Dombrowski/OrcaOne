@@ -27,8 +27,10 @@ Automatik, bidirektionale Kommunikation …) stehen in
 
 ## Für Teammitglieder: hier anfangen
 
-1. **[`docs/STRUCTURE.md`](docs/STRUCTURE.md)** — erklärt den gesamten Aufbau des
-   Projekts und **wo was liegt**. Immer zuerst lesen.
+1. **[`docs/ARBEITSWEISE.md`](docs/ARBEITSWEISE.md)** — der verbindliche Standard,
+   nach dem **alle** (Menschen wie KIs) gleich arbeiten. **Zuerst lesen.**
+2. **[`docs/STRUCTURE.md`](docs/STRUCTURE.md)** — erklärt den gesamten Aufbau des
+   Projekts und **wo was liegt**.
 2. Deinen Arbeitsbereich finden (jede Person betreut eigene Module/Ordner):
    - Firmware-Module: [`firmware/src/modules/`](firmware/src/modules/)
    - Weboberfläche: [`web/`](web/)

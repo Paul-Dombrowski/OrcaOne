@@ -11,6 +11,7 @@ Alle Module erben von der Basisklasse `Module` (siehe
 | `nfc/` | NFC/RFID lesen, schreiben, klonen | Sensor + Aktor | ⬜ |
 | `ir/` | IR aufnehmen & senden | Sensor + Aktor | ⬜ |
 | `jammer/` | 2,4-GHz-Störsender | Aktor | ⬜ |
+| `sdcard/` | Micro-SD (Add-on, liefert SD-Backend für `storage/`) | — | ⬜ |
 
 ## Ein neues Modul anlegen (Bauanleitung)
 

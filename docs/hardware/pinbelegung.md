@@ -5,7 +5,10 @@
 > [`../../firmware/src/config.h`](../../firmware/src/config.h) anpassen — dort
 > stehen dieselben Werte als `#define`.
 
-Annahme: ESP32 DevKit (30-Pin). Alle Module an **3,3 V** und gemeinsame **GND**.
+**Board: ESP32 D1 R32** (Uno-Formfaktor). ⚠️ Die Pin-Nummern unten stammen noch vom
+30-Pin-DevKit und sind für das D1 R32 **nicht verifiziert** — vor dem Aufbau gegen
+die D1-R32-Pinbelegung prüfen und in `config.h` korrigieren. Alle Module an
+**3,3 V** und gemeinsame **GND**.
 
 ## I2C-Bus (geteilt: OLED + PN532)
 
@@ -62,3 +65,16 @@ Annahme: ESP32 DevKit (30-Pin). Alle Module an **3,3 V** und gemeinsame **GND**.
 
 > Hinweis: GPIO34 hat keinen internen Pull-up (für den IR-Empfänger ok). GPIO5
 > ist ein Strapping-Pin, als CSN aber unkritisch.
+
+## Micro-SD (Add-on, SPI)
+
+Das SD-Modul teilt sich den **SPI-Bus mit dem NRF24** (SCK/MISO/MOSI gemeinsam),
+braucht aber einen **eigenen Chip-Select (CS)**.
+
+| Signal | ESP32-Pin |
+|---|---|
+| SCK / MISO / MOSI | wie NRF24 (18 / 19 / 23) |
+| CS | **TBD** — am D1 R32 festlegen (anderer Pin als NRF24-CSN) |
+
+In `config.h` steht `PIN_SD_CS` als auskommentierter Platzhalter; erst nach
+Festlegung einkommentieren.

@@ -1,5 +1,15 @@
 # Modul: ir — Infrarot aufnehmen & senden
 
+## Vor dem Start lesen
+docs/ARBEITSWEISE.md · diese README · core/Module.h · storage/README.md
+
+## Was ändere ich wo / Was speichere ich wie
+- Eigene Dateien:   firmware/src/modules/ir/   (nur hier Code dieses Moduls)
+- Einstellungen:    firmware/src/config.h       (Pins/Konstanten dieses Moduls)
+- Speicher-Namensraum: "ir"                      (über Storage, siehe storage/README.md)
+
+---
+
 **Hardware:** KY-022 Empfänger an GPIO34 (nur Eingang), KY-005 / IR-LED Sender an
 GPIO4. **Bibliothek:** `IRremoteESP8266`.
 **Rolle:** Sensor (Signal empfangen) **und** Aktor (Signal senden).
@@ -36,6 +46,8 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
   Protokoll aufrufen.
 - GPIO34 ist **input-only** (kein interner Pull-up) — passt für den Empfänger.
 - Pins aus [`../../config.h`](../../config.h).
+- Speichern über `Storage.save("ir", "slot1", jsonText)`; vorher `Storage.available()`
+  prüfen, aber **nie abbrechen**, wenn keine SD da ist (dann nur flüchtig im RAM).
 
 ## To-do
 

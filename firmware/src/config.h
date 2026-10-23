@@ -8,6 +8,14 @@
 //  Die Pinbelegung muss mit docs/hardware/pinbelegung.md uebereinstimmen!
 // ============================================================================
 
+// ============================================================================
+//  ACHTUNG BOARD: ESP32 D1 R32 (Uno-Formfaktor).
+//  Die Pin-Nummern unten stammen noch vom 30-Pin-DevKit und sind fuer das
+//  D1 R32 NICHT verifiziert. Vor dem Hardware-Aufbau gegen die D1-R32-
+//  Pinbelegung pruefen (docs/hardware/pinbelegung.md). Board-Wechsel spaeter =
+//  nur Werte in DIESER Datei aendern, sonst nirgendwo.
+// ============================================================================
+
 // ---- WLAN: der ESP32 macht einen eigenen Hotspot auf (kein Internet noetig) ----
 // Das AP-Passwort steht NICHT im Repo, sondern in secrets.h (git-ignoriert).
 // Vorlage: secrets.example.h nach secrets.h kopieren und Wert eintragen.
@@ -49,6 +57,11 @@
 #define PIN_NRF_MOSI      23
 #define PIN_NRF_CE        17
 #define PIN_NRF_CSN        5
+
+// ---- Micro-SD (Add-on, SPI, teilt Bus mit NRF24; eigener CS-Pin) ----
+// Platzhalter: CS-Pin am D1 R32 festlegen, sobald die Hardware steht.
+// Muss ein ANDERER Pin sein als PIN_NRF_CSN. Erst dann einkommentieren.
+// #define PIN_SD_CS      16
 
 // ---- Timings ----
 #define STATUS_PUSH_MS   500   // wie oft der Status ans Handy geschickt wird (ms)

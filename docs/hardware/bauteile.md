@@ -9,6 +9,7 @@
 | NRF24L01+ | 2,4-GHz-Funkmodul | Störsender (abgestimmter Rahmen) | `jammer` |
 | OLED 1,3" | Display (SH1106, I2C) | Menü- und Statusanzeige | `display` |
 | KY-040 | Drehgeber mit Taster | Menü-Navigation & Auswahl | `input` |
+| Micro-SD-Modul | SD-Karten-Leser (SPI) | dauerhafter Speicher (Add-on) | `sdcard` |
 
 ## Verbrauchsmaterial / sonstiges
 

@@ -1,5 +1,15 @@
 # Modul: input — Drehgeber (Menü-Navigation)
 
+## Vor dem Start lesen
+docs/ARBEITSWEISE.md · diese README · core/Module.h
+
+## Was ändere ich wo / Was speichere ich wie
+- Eigene Dateien:   firmware/src/modules/input/   (nur hier Code dieses Moduls)
+- Einstellungen:    firmware/src/config.h          (Encoder-Pins)
+- Speicher-Namensraum: — (speichert nichts)
+
+---
+
 **Hardware:** Drehgeber KY-040 (CLK = GPIO25, DT = GPIO26, SW = GPIO27).
 **Bibliothek:** `ESP32Encoder`. **Rolle:** Sensor (Benutzereingabe).
 `name()` = `"input"`.
