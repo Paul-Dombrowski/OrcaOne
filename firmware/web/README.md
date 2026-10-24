@@ -18,14 +18,23 @@ diese Datei beim Weiterbauen immer als Referenz nehmen.
 
 ## Wie es aufs Handy kommt
 
-Dieser Ordner (`firmware/web/`) **ist** der Upload-Ordner — `platformio.ini` ist so
-eingestellt. Kein Kopieren nötig.
+Die Dateien in diesem Ordner müssen in ein eigenes Flash-Dateisystem (LittleFS)
+des ESP32.
 
-1. In PlatformIO **„Upload Filesystem Image"** ausführen → der Inhalt von `web/`
-   landet im ESP32-Flash (LittleFS).
+> ⚠️ **Noch nicht eingerichtet (Schritt 3 der ESP-IDF-Umstellung).** Unter
+> PlatformIO erledigte das der Knopf „Upload Filesystem Image". Unter ESP-IDF
+> braucht es eine **LittleFS-Partition** (Eintrag in der Partitionstabelle) und
+> einen **Image-Schritt**, der `web/` in ein LittleFS-Abbild packt und flasht
+> (z. B. über die Komponente `joltwallet/littlefs` mit
+> `littlefs_create_partition_image`). Das wird beim Anbinden der Weboberfläche
+> eingerichtet und hier mit dem konkreten `idf.py`-Befehl ergänzt. **Bis dahin
+> gibt es keinen funktionierenden Upload-Schritt.**
+
+Sobald das steht, ist der Ablauf:
+1. Firmware flashen (`idf.py flash`) **und** das LittleFS-Image flashen.
 2. Der Webserver (`firmware/src/network/`) liefert die Dateien aus.
 3. Handy mit dem WLAN **OrcaOne** verbinden und die IP des ESP32 im Browser
-   öffnen (steht im Serial-Monitor). Für die Demo: **QR-Code** auf diese Adresse
+   öffnen (steht im Serial Monitor). Für die Demo: **QR-Code** auf diese Adresse
    (Aufgabe 5).
 
 ## Fremd-Bibliotheken (JS/CSS)

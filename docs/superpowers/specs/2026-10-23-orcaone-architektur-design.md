@@ -84,8 +84,10 @@ Spezifikations-/Doku-Ebene.
 - **Bus-Teilung:** NRF24L01+ und das SD-Modul nutzen **beide SPI**. Sie teilen sich
   denselben SPI-Bus, brauchen aber **getrennte CS-Pins**. Das ist im Pin-Layout zu
   berücksichtigen.
-- **Software:** PlatformIO + Arduino-Framework. Nicht-blockierend: kein `delay()` in
-  `update()` (begründet in `core/README.md`).
+- **Software:** Arduino-Framework, gebaut/geflasht mit **ESP-IDF 5.5** (`idf.py`);
+  der Arduino-Core wird als Komponente geladen. (Umgestellt 2026-10-24, vorher
+  PlatformIO.) Nicht-blockierend: kein `delay()` in `update()` (begründet in
+  `core/README.md`).
 - **Team:** 3 Personen, git-basiert, Arbeit über Feature-Branches + PRs; kleinere
   KI-Modelle als Helfer.
 - **Termin:** Abgabe/Präsentation 11.11.2026.
