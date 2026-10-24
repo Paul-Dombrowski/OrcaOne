@@ -73,7 +73,8 @@ docs/ARBEITSWEISE.md · diese README · core/Module.h · (bei Speichern: storage
 ```
 
 Danach folgen: *Was es können soll* → *Befehle (`handleCommand`)* → *Status
-(`statusJson`)* → *Umsetzungshinweise* → *To-do*. Diese Reihenfolge ist für **alle**
+(`statusJson`, immer mit `ok`)* → *Ohne Hardware* (was passiert, wenn das Bauteil
+fehlt + wie man per Serial Monitor testet) → *Umsetzungshinweise* → *To-do*. Diese Reihenfolge ist für **alle**
 Module gleich.
 
 ---

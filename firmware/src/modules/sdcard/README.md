@@ -29,6 +29,16 @@ RAM-Backend weiter (siehe `storage/README.md`).
   NRF24. Konkreter Pin: `config.h` (aktuell `TBD`, in der Hardware-Phase am D1 R32
   festlegen).
 
+## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
+
+- **Kein SD-Modul / keine Karte:** `SD.begin(PIN_SD_CS)` gibt `false` zurück. Dann
+  einmal `[sdcard] keine Karte - Speicher nur im RAM` ausgeben, `ok = false`.
+  Der Speicher-Dienst nutzt dann automatisch das RAM-Backend, alle Module laufen
+  normal weiter (`Storage.available() == false`).
+- Solange `PIN_SD_CS` in `config.h` noch auskommentiert ist, bleibt das Modul
+  immer inaktiv. Das ist so gewollt und kein Fehler.
+- SPI-Bus wird mit dem NRF24 geteilt. Fehlt eines der beiden, läuft das andere.
+
 ## To-do (später, nicht jetzt)
 - [ ] Kartenerkennung beim Start + Statusmeldung.
 - [ ] SD-Backend an den Speicher-Dienst anbinden.

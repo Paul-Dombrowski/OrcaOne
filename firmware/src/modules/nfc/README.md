@@ -41,13 +41,25 @@ einen anderen Leser.
 ## Status (`statusJson`)
 
 ```json
-{ "ready": true, "lastUid": "04A1B2C3", "tagPresent": false, "stored": 1 }
+{ "ok": true, "ready": true, "lastUid": "04A1B2C3", "tagPresent": false, "stored": 1 }
 ```
+
+## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
+
+- **PN532 fehlt:** `nfc.getFirmwareVersion()` liefert `0`. Dann einmal
+  `[nfc] PN532 nicht gefunden - Modul inaktiv` ausgeben, `ok = false`, `update()`
+  tut nichts, `handleCommand()` gibt `false` zurück.
+- ⚠️ Der Beispiel-Sketch der Adafruit-Bibliothek macht an dieser Stelle
+  `while (1);`. **Nicht übernehmen**, sonst hängt das ganze Gerät, sobald jemand
+  ohne PN532 testet.
+- Das OLED-Display teilt sich den I2C-Bus mit dem PN532. Fehlt eines der beiden,
+  funktioniert das andere trotzdem.
+- **Testen ohne Display/Handy:** im Serial Monitor `nfc read`, danach `status`.
 
 ## Umsetzungshinweise (auch für KI)
 
-- In `begin()`: `nfc.begin()` und `nfc.SAMConfig()` aufrufen, bei Fehler per
-  `Serial.println` melden.
+- In `begin()`: `nfc.begin()` und `nfc.SAMConfig()` aufrufen. Fehlerfall siehe
+  „Ohne Hardware“.
 - In `update()`: **nicht blockierend** nach einem Tag suchen. Die Adafruit-
   Funktion `readPassiveTargetID(...)` kann mit kurzem Timeout aufgerufen werden;
   pro Durchlauf nur ein kurzer Versuch, dann zurückkehren.

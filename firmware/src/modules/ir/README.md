@@ -38,8 +38,22 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
 ## Status (`statusJson`)
 
 ```json
-{ "recording": false, "lastProtocol": "NEC", "slots": [true,false,false] }
+{ "ok": true, "recording": false, "lastProtocol": "NEC", "slots": [true,false,false] }
 ```
+
+## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
+
+- Empfänger und Sender lassen sich nicht erkennen. `ok` ist deshalb immer `true`.
+  Ohne Sender wird eben „ins Leere“ gesendet, das ist harmlos.
+- ⚠️ **Rauschen ohne Empfänger:** GPIO34 hat keinen internen Pull-up. Ist kein
+  KY-022 angeschlossen, hängt der Pin in der Luft und kann Zufallssignale liefern,
+  die als „unbekanntes IR-Signal“ erkannt werden. Deshalb:
+  - kurze Störsignale ausfiltern: `irrecv.setUnknownThreshold(12)` (Wert wie im
+    Beispiel `IRrecvDumpV2` der Bibliothek),
+  - empfangene Signale **nur während `record`** in einen Slot übernehmen, sonst
+    höchstens `lastProtocol` aktualisieren.
+- **Testen ohne Display/Handy:** im Serial Monitor `ir record slot=1`, Taste auf
+  der Fernbedienung drücken, dann `ir send slot=1`.
 
 ## Umsetzungshinweise (auch für KI)
 
@@ -48,7 +62,8 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
   bzw. Protokoll+Code im aktiven Slot speichern.
 - Senden: `IRsend` auf `PIN_IR_TX`; passende `send...()`-Funktion zum gespeicherten
   Protokoll aufrufen.
-- GPIO34 ist **input-only** (kein interner Pull-up) — passt für den Empfänger.
+- GPIO34 ist **input-only** (kein interner Pull-up). Mit Empfänger passt das,
+  weil das KY-022-Modul den Pegel selbst festlegt. Ohne Empfänger siehe oben.
 - Pins aus [`../../config.h`](../../config.h).
 - Speichern über `Storage.save("ir", "slot1", jsonText)`; vorher `Storage.available()`
   prüfen, aber **nie abbrechen**, wenn keine SD da ist (dann nur flüchtig im RAM).

@@ -46,6 +46,17 @@ Infozeilen ohne Auswahl.
 - `update()` übernimmt das eigentliche Zeichnen (U8g2 arbeitet mit einem
   Puffer: Inhalt setzen, dann einmal `display.sendBuffer()`), nicht-blockierend.
 
+## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
+
+- U8g2 merkt nicht, ob ein Display angeschlossen ist. Ohne Display laufen die
+  Zeichenbefehle einfach ins Leere, das ist harmlos und **soll so bleiben** (keine
+  Erkennung einbauen). `ok` ist deshalb immer `true`.
+- **Das Menü ist trotzdem bedienbar:** Der `MenuController` gibt jedes Menü
+  zusätzlich im Serial Monitor aus (`Console.printMenu`), siehe
+  [`../../console/README.md`](../../console/README.md). Das Display-Modul muss dafür
+  **nichts** tun und ruft die Konsole auch nicht selbst auf.
+- Status: `{ "ok": true }`.
+
 ## To-do
 
 - [ ] `DisplayModule.h` / `.cpp` anlegen, U8g2 initialisieren.

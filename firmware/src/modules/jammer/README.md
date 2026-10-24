@@ -32,12 +32,23 @@ nicht die Sendelogik.
 | Methode | Zweck |
 |---|---|
 | `handleCommand("start"/"stop", …)` | Modul aktivieren/deaktivieren |
-| `statusJson(obj)` | z. B. `{ "active": false }` zurückgeben |
+| `statusJson(obj)` | z. B. `{ "ok": true, "active": false }` zurückgeben |
 | `update()` | nicht-blockierend; reagiert auf den aktiven Zustand |
 
 Damit das Gerät bedienbar bleibt, muss auch dieses Modul die
 Nicht-Blockieren-Regel aus [`../../core/README.md`](../../core/README.md) einhalten
 und jederzeit sauber über `stop` abschaltbar sein.
+
+## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
+
+- **NRF24 fehlt:** `radio.begin()` gibt `false` zurück (alternativ
+  `radio.isChipConnected()`). Dann einmal `[jammer] NRF24 nicht gefunden - Modul
+  inaktiv` ausgeben, `ok = false`, `start` gibt `false` zurück.
+- Kein `while (1);` aus den RF24-Beispielen übernehmen.
+- Der SPI-Bus wird mit der SD-Karte geteilt. Fehlt eines der beiden Module,
+  funktioniert das andere trotzdem.
+- **Testen ohne Display/Handy:** im Serial Monitor `jammer start`, `status`,
+  `jammer stop`.
 
 ## To-do
 
