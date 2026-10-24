@@ -223,6 +223,34 @@ Aktualisiert (nur Text/Doku):
   klarstellen, dass Persistenz optional ist.
 - `config.h` — Platz/Hinweis für SD-Pins; Board-Regel als Kommentar.
 
+### 5.7 Arbeiten mit Teil-Hardware + Serial-Konsole (ergänzt 2026-10-24)
+
+**Ausgangslage:** Keine Person im Team hat alle Bauteile zu Hause. Wer z. B. nur
+das NFC-Modul hat, hat weder Display noch Drehgeber. Trotzdem muss jede Person ihr
+Modul vollständig entwickeln und bedienen können.
+
+**Festlegung — fehlende Hardware wird nicht erkannt, sondern ausgehalten:**
+- Es gibt **keine** Hardware-Erkennung und **keine** Schalter, welche Bauteile
+  angeschlossen sind. Ist ein Bauteil nicht da, funktioniert eben dieses Modul
+  nicht. Alles andere läuft normal weiter.
+- Dafür muss jedes Modul **robust** sein: kein `while(1);`, kein Neustart, kein
+  Warten ohne Zeitlimit, wenn das Bauteil fehlt (Details: `ARBEITSWEISE.md` §6 Regel 5).
+- Offene Eingangspins (Drehgeber) bekommen interne Pull-ups, damit sie ohne
+  angeschlossenes Bauteil keine Zufallsereignisse erzeugen.
+
+**Festlegung — der Serial Monitor ist eine vollwertige Bedienoberfläche:**
+- Neuer gemeinsamer Dienst `firmware/src/console/` (Serial-Konsole). Er ist eine
+  **dritte Befehlsquelle** neben Drehgeber-Menü und Handy und nutzt denselben Weg:
+  `handleCommand()` der Module bzw. `system` für den `ModeManager`.
+- Umfang: (1) **Modul-Befehle** in derselben Form wie die Web-API (z. B.
+  `ir send slot=1`), plus `status` und `help`; (2) **Menü-Emulation**: `up`,
+  `down`, `ok`, `back` ersetzen den Drehgeber, und das Menü wird zusätzlich als
+  Text im Monitor ausgegeben, damit es auch ohne Display bedienbar ist.
+- Damit Konsole und `network/` die Befehle nicht doppelt verteilen, gibt es dafür
+  eine gemeinsame Stelle im `core/` (Befehls-Verteiler).
+- Nicht im Umfang: Sensorwerte vortäuschen (Simulation). Kann später als eigener
+  Befehl ergänzt werden.
+
 ---
 
 ## 6. Dem Entwickler überlassen (Left to builder)
@@ -261,6 +289,11 @@ kann — ihr könnt jede davon kippen:
    Automatik-Demo auch ohne SD); eine echte „registrierte Tags"-Liste kommt
    zusätzlich als Speicher-Namensraum, sobald Persistenz verfügbar ist.
 7. **Web liest Speicher-Daten über die Module**, nicht direkt aus `storage/`.
+8. **Teil-Hardware ohne Erkennung** (Entscheidung des Nutzers, 2026-10-24):
+   fehlende Bauteile werden nicht erkannt und nicht per Schalter abgemeldet; die
+   Module müssen nur robust sein (5.7).
+9. **Serial-Konsole = Befehle + Menü-Emulation**, ohne Simulation (Entscheidung
+   des Nutzers, 2026-10-24).
 
 ### 7b. Das solltet ihr als Gruppe entscheiden
 

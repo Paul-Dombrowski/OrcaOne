@@ -106,6 +106,25 @@ Module gleich.
 3. **`Module.h` bleibt bei genau 4 Methoden** (`begin/update/statusJson/handleCommand`).
    Neue Fähigkeiten kommen als neues Modul, nicht durch Aufbohren des Vertrags.
 4. **Additiv bauen:** neue Funktion = neue Datei(en), den Kern nicht umbauen.
+5. **Fehlende Hardware darf nie den Rest blockieren.** Niemand im Team hat alle
+   Bauteile zu Hause. Ist ein Bauteil nicht angeschlossen, funktioniert nur dieses
+   eine Modul nicht. Alles andere muss normal weiterlaufen. Konkret:
+   - **Kein `while(1);`**, kein `ESP.restart()`, kein Warten ohne Zeitlimit, wenn
+     ein Bauteil nicht antwortet. Achtung: Die Beispiel-Sketches vieler
+     Bibliotheken machen genau das (`if (!found) while (1);`), also **nicht
+     übernehmen**.
+   - Meldet die Bibliothek beim Start einen Fehler: **einmal** im Serial Monitor
+     ausgeben (z. B. `[nfc] PN532 nicht gefunden - Modul inaktiv`), dann
+     `update()` nichts tun lassen und in `handleCommand()` `false` zurückgeben.
+   - Eingänge ohne angeschlossenes Bauteil dürfen keine Zufallsereignisse
+     erzeugen: **interne Pull-ups** aktivieren (`INPUT_PULLUP`, beim Drehgeber
+     über die Pull-up-Einstellung von `ESP32Encoder`).
+   - Es gibt **keine** Hardware-Erkennung und **keine** An/Aus-Schalter für
+     Bauteile. Bau keine ein.
+6. **Alles ist über den Serial Monitor bedienbar.** Jeder Befehl, den das Handy
+   oder das Menü auslösen kann, muss auch über die Serial-Konsole gehen. Ein Modul
+   erreicht das automatisch, wenn es seine Befehle in `handleCommand()` umsetzt
+   (siehe `firmware/src/console/`).
 
 ---
 

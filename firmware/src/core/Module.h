@@ -24,6 +24,9 @@ public:
 
   // Einmalige Hardware-Initialisierung. Wird in setup() genau einmal aufgerufen.
   // Hier: Pins setzen, Bus (I2C/SPI) starten, Sensor-Objekt initialisieren.
+  // Das Bauteil kann FEHLEN (nicht jede Person hat alle Bauteile). Dann:
+  // einmal per Serial melden, Modul inaktiv lassen, sofort zurueckkehren.
+  // NIE while(1); / ESP.restart() / Warten ohne Zeitlimit (ARBEITSWEISE.md §6).
   virtual void begin() = 0;
 
   // Wird in JEDEM Durchlauf von loop() aufgerufen (viele Male pro Sekunde).
@@ -34,10 +37,14 @@ public:
 
   // Aktuellen Zustand des Moduls in das uebergebene JSON-Objekt schreiben.
   // Dieses JSON geht an das Handy (Weboberflaeche) und speist die Anzeige.
-  // Beispiel NFC: obj["lastUid"] = "04A1B2C3"; obj["ready"] = true;
+  // Beispiel NFC: obj["ok"] = true; obj["lastUid"] = "04A1B2C3";
+  // Pflichtfeld "ok": false, wenn begin() einen Fehler gemeldet hat (Bauteil
+  // fehlt), sonst true. Das Handy graut das Modul dann aus.
   virtual void statusJson(JsonObject obj) = 0;
 
-  // Einen Befehl ausfuehren, der vom Handy ODER vom lokalen Menue kommt.
+  // Einen Befehl ausfuehren, der vom Handy, vom lokalen Menue ODER von der
+  // Serial-Konsole kommt (alle drei landen hier - deshalb nur hier umsetzen).
+  // Ist das Modul inaktiv (Bauteil fehlt): false zurueckgeben, nicht haengen.
   // 'action' = was getan werden soll (z. B. "read", "replay", "start").
   // 'params' = optionale Zusatzdaten (z. B. welcher Speicherplatz).
   // Rueckgabe: true, wenn der Befehl verstanden und angenommen wurde.

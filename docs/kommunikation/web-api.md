@@ -21,9 +21,9 @@ Weboberfläche aktualisiert damit ihre Anzeige.
   "type": "status",
   "mode": "manual",
   "modules": {
-    "nfc":    { "ready": true, "lastUid": "04A1B2C3", "tagPresent": false, "stored": 1 },
-    "ir":     { "recording": false, "lastProtocol": "NEC", "slots": [true, false, false] },
-    "jammer": { "active": false },
+    "nfc":    { "ok": true, "ready": true, "lastUid": "04A1B2C3", "tagPresent": false, "stored": 1 },
+    "ir":     { "ok": true, "recording": false, "lastProtocol": "NEC", "slots": [true, false, false] },
+    "jammer": { "ok": false, "active": false },
     "display":{ "ok": true },
     "input":  { "ok": true }
   }
@@ -34,6 +34,10 @@ Weboberfläche aktualisiert damit ihre Anzeige.
 - `modules`: ein Eintrag pro Modul, Schlüssel = `name()` des Moduls. Der Inhalt
   ist genau das, was das jeweilige Modul in `statusJson()` schreibt (siehe die
   README im Modul-Ordner).
+- **`ok` ist Pflicht in jedem Modul:** `false` heißt, das Bauteil hat beim Start
+  nicht geantwortet (z. B. nicht angeschlossen). Die Weboberfläche zeigt das Modul
+  dann ausgegraut an, statt Befehle zu senden. Alle anderen Module laufen normal
+  weiter (siehe `docs/ARBEITSWEISE.md` §6 Regel 5).
 
 ---
 
