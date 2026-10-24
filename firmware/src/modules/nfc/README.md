@@ -85,6 +85,29 @@ einen anderen Leser.
 - Speichern über `Storage.save("nfc", "slot1", jsonText)`; vorher `Storage.available()`
   prüfen, aber **nie abbrechen**, wenn keine SD da ist (dann nur flüchtig im RAM).
 
+## Sicherheit: NFC-Tags sind untrusted Eingaben
+
+Ein Tag kann **beliebige Bytes** enthalten — jeder kann einen Tag frei
+beschreiben. Die eingebundenen Bibliotheken haben in der Upstream-Fassung
+bekannte Speicherfehler beim Verarbeiten solcher Daten (von der automatischen
+Sicherheitsprüfung gemeldet, 2026-10-24):
+
+- **NDEF-Parsing** (`components/NDEF/NdefMessage.cpp`): Längenfelder aus dem Tag
+  werden ungeprüft als Index/Größe benutzt → Out-of-bounds-Read / Heap-Korruption
+  bei manipuliertem/defektem Tag. Betrifft `NfcAdapter::read()`.
+- **Mifare-Classic-Schreiben** (`components/NDEF/MifareClassic.cpp`): Puffergröße
+  aus `messageLength` als VLA auf dem Stack → Stack-Overflow bei großer Länge.
+- **Tag-Emulation** (`components/PN532/emulatetag.cpp`): Buffer-Overflow bei
+  APDU-Daten. Nur relevant, falls Emulation genutzt wird (**nicht** vorgesehen).
+
+Auf dem ESP32 (kein Speicherschutz) ist die wahrscheinliche Folge ein
+Absturz/Reboot. **Beim Umsetzen dieses Moduls deshalb:**
+- Tag-Länge vor dem Parsen gegen eine feste Obergrenze prüfen; Längen aus dem Tag
+  nie ungeprüft als Index/Größe verwenden.
+- `emulatetag` nicht verwenden.
+- Alternativ die Bibliotheken patchen (Bounds-Checks) — dann im jeweiligen
+  `components/<Lib>/HERKUNFT.md` als Änderung vermerken.
+
 ## Idee zur Handy-Integration
 
 Das Smartphone hat selbst NFC. Perspektivisch könnte das Handy gelesene/kopierte

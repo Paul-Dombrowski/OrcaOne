@@ -101,3 +101,8 @@ Beim Hinzufügen hier eine Zeile ergänzen.
 
 > Noch offen: je ein `HERKUNFT.md` (Quelle/Version/Lizenz) pro Komponente — bitte
 > die Download-Quelle eintragen, die bei dir verwendet wurde.
+
+> ⚠️ **Bekannte Schwachstellen** in PN532/NDEF (Upstream, untrusted Tag-Daten):
+> OOB-Read beim NDEF-Parsen, VLA-Stack-Overflow beim Mifare-Schreiben,
+> Buffer-Overflow in `emulatetag` (ungenutzt). Details und Gegenmaßnahmen:
+> [`../src/modules/nfc/README.md`](../src/modules/nfc/README.md) → „Sicherheit".
