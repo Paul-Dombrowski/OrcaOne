@@ -40,3 +40,7 @@ Jeder Menüpunkt hat ein Gegenstück in der Web-API und umgekehrt. Wird ein Befe
 neu aufgenommen, muss er an **drei** Stellen gepflegt werden: hier, in
 [`../kommunikation/web-api.md`](../kommunikation/web-api.md) und im
 `handleCommand()` des Moduls.
+
+Die **Serial-Konsole** braucht keine eigene Pflege: Sie nutzt dieselben Befehle
+(`ir send slot=1`) und bedient das Menü mit `up`/`down`/`ok`/`back`. Siehe
+[`../../firmware/src/console/README.md`](../../firmware/src/console/README.md).

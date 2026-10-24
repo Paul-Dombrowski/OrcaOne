@@ -16,7 +16,8 @@ firmware/
    ├─ core/         → Modul-Vertrag, Auto/Manuell-Modus, Menü
    ├─ storage/      → zentraler Speicher-Dienst
    ├─ modules/      → die einzelnen Funktionen (nfc, ir, jammer, display, input, sdcard)
-   └─ network/      → WLAN-Hotspot + Webserver + WebSocket
+   ├─ network/      → WLAN-Hotspot + Webserver + WebSocket
+   └─ console/      → Serial-Konsole (Bedienung über den Serial Monitor)
 ```
 
 ## Bibliotheken hinzufügen
@@ -37,6 +38,15 @@ geht, kommt der Code nach `lib/`. Die genaue Entscheidungsreihenfolge steht in
 - **Upload** (Pfeil-Symbol) → flasht die Firmware auf den angeschlossenen ESP32.
 - **Upload Filesystem Image** → lädt die Weboberfläche (`web/`) auf den ESP32.
 - **Monitor** (Stecker-Symbol) → zeigt die `Serial.println`-Ausgaben (115200 Baud).
+  Dort lassen sich auch **Befehle eintippen** (z. B. `nfc read`, `help`) und das
+  Menü mit `up`/`down`/`ok`/`back` bedienen. So geht alles auch ohne Display,
+  Drehgeber oder Handy. Siehe [`src/console/README.md`](src/console/README.md).
+
+## Nicht alle Bauteile da?
+
+Kein Problem, das ist der Normalfall. Was nicht angeschlossen ist, funktioniert
+nicht, alles andere läuft normal weiter. Regel für den Code:
+[`../docs/ARBEITSWEISE.md`](../docs/ARBEITSWEISE.md) §6 Regel 5.
 
 ## Wie die Weboberfläche auf den ESP32 kommt
 

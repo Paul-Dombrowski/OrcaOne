@@ -7,6 +7,9 @@
 //  Ablauf:
 //    setup()  -> alle Module einmal initialisieren (begin())
 //    loop()   -> allen Modulen staendig update() geben + Netzwerk bedienen
+//                + Serial-Konsole bedienen (Bedienung ohne Display/Drehgeber)
+//
+//  Fehlt ein Bauteil, laeuft trotzdem alles andere weiter (ARBEITSWEISE.md §6).
 //
 //  HINWEIS: Dies ist ein GERUEST. Die mit TODO markierten Zeilen werden
 //  aktiviert, sobald das jeweilige Modul existiert. Bis dahin laeuft das
@@ -22,7 +25,10 @@
 // #include "modules/ir/IrModule.h"
 // #include "modules/jammer/JammerModule.h"
 // #include "core/ModeManager.h"
+// #include "core/CommandRouter.h"
+// #include "core/MenuController.h"
 // #include "network/NetworkManager.h"
+// #include "console/SerialConsole.h"   // stellt das globale Objekt "Console" bereit
 
 // --- Globale Objekte (ein Exemplar pro Modul) ---
 // DisplayModule display;
@@ -31,6 +37,8 @@
 // IrModule      ir;
 // JammerModule  jammer;
 // ModeManager   mode;          // kennt alle Module, fuehrt Automatik aus
+// CommandRouter router;        // EIN Weg fuer alle Befehle (Menue, Handy, Serial)
+// MenuController menu;         // Menue-Logik; Ausgabe auf Display UND Serial
 // NetworkManager net;          // WLAN-AP + Webserver + WebSocket
 
 // Alle Module in einer Liste, damit loop() sie einheitlich durchlaufen kann.
@@ -43,9 +51,13 @@ void setup() {
   // TODO: jedes Modul initialisieren
   // for (Module* m : modules) m->begin();
 
-  // TODO: Netzwerk starten und ihm die Modul-Liste geben, damit es Befehle
-  //       vom Handy an das richtige Modul weiterreichen kann.
-  // net.begin(modules, sizeof(modules)/sizeof(modules[0]), &mode);
+  // TODO: Befehls-Verteiler kennt alle Module + ModeManager.
+  // router.begin(modules, sizeof(modules)/sizeof(modules[0]), &mode);
+
+  // TODO: Menue, Netzwerk und Serial-Konsole nutzen alle denselben Router.
+  // menu.begin(&router, &display);
+  // net.begin(&router);
+  // Console.begin(&router, &menu);
 
   Serial.println("[OrcaOne] Bereit.");
 }
@@ -57,6 +69,14 @@ void loop() {
   // TODO: Automatik-Regeln auswerten (nur aktiv, wenn Modus == auto)
   // mode.update();
 
+  // TODO: Drehgeber-Ereignisse ans Menue geben (die Konsole tut dasselbe
+  //       mit up/down/ok/back - beide Wege landen in menu.handleInput()).
+  // InputEvent e = input.poll();
+  // if (e != InputEvent::None) menu.handleInput(e);
+
   // TODO: Netzwerk bedienen + regelmaessig Status ans Handy schicken
   // net.update();
+
+  // TODO: Eingaben aus dem Serial Monitor verarbeiten (nicht blockierend)
+  // Console.update();
 }

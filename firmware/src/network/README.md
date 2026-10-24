@@ -28,16 +28,17 @@ Status-Push.
 
 ## So reicht es Befehle an Module weiter
 
-Der NetworkManager bekommt beim Start die Liste aller Module und den
-ModeManager (siehe `main.cpp`). Kommt z. B.
-`{ "module":"ir", "action":"send", "params":{"slot":1} }` herein, sucht er das
-Modul mit `name() == "ir"` und ruft dessen `handleCommand("send", params)` auf.
-Befehle an `"system"` (z. B. Modus umschalten) gehen an den ModeManager.
+Der NetworkManager verteilt Befehle **nicht selbst**, sondern gibt sie an den
+gemeinsamen `CommandRouter` in `core/` (den nutzen auch Menü und Serial-Konsole,
+siehe [`../core/README.md`](../core/README.md)). Kommt z. B.
+`{ "module":"ir", "action":"send", "params":{"slot":1} }` herein, ruft er
+`router.dispatch("ir", "send", params)` auf. Der Router sucht das Modul mit
+`name() == "ir"` bzw. gibt `"system"` an den ModeManager.
 
 ## Status zusammenbauen
 
-Für den Status-Push geht der NetworkManager alle Module durch und ruft
-`statusJson()` auf, gebündelt zu:
+Für den Status-Push ruft der NetworkManager `router.buildStatus(...)` auf. Das
+Ergebnis ist:
 
 ```json
 { "mode": "manual", "modules": { "nfc": {...}, "ir": {...}, "jammer": {...} } }

@@ -39,7 +39,8 @@ OrcaOne/
 │     │  ├─ display/         → OLED-Ausgabe (1,3")
 │     │  ├─ input/           → Drehgeber (Menü-Navigation)
 │     │  └─ sdcard/          → Micro-SD (Add-on, liefert SD-Backend für storage/)
-│     └─ network/            → WLAN-Access-Point + Webserver + WebSocket
+│     ├─ network/            → WLAN-Access-Point + Webserver + WebSocket
+│     └─ console/            → Serial-Konsole: alles per Serial Monitor bedienbar
 │
 └─ task/                     → Original-Projektauftrag der Schule (nicht ändern)
 ```
@@ -123,5 +124,8 @@ So bekommt eine KI genug Kontext, ohne das ganze Projekt zu „kennen".
 - **Keine blockierenden Wartezeiten** (`delay()`) in `update()` — sonst hängt das
   ganze Gerät. Begründung steht in [`firmware/src/core/README.md`](../firmware/src/core/README.md).
 - **Geheimnisse** (echte WLAN-Passwörter o. Ä.) gehören nicht ins Repo.
+- **Teil-Hardware:** Niemand hat alle Bauteile. Fehlt eines, läuft der Rest
+  weiter, und alles ist über den Serial Monitor bedienbar
+  ([`ARBEITSWEISE.md`](ARBEITSWEISE.md) §6, [`firmware/src/console/`](../firmware/src/console/)).
 - **Fremd-Bibliotheken** zuerst über `lib_deps` in `platformio.ini`, nur im
   Ausnahmefall als Code nach `firmware/lib/`. Ablauf: [`firmware/lib/README.md`](../firmware/lib/README.md).

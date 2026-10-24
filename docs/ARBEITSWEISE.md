@@ -22,6 +22,7 @@ Bevor du mit einer Aufgabe beginnst, lies in dieser Reihenfolge:
 5. Bei Hardware/Pins: **`docs/hardware/pinbelegung.md`**.
 6. Bei Handy ↔ ESP32: **`docs/kommunikation/web-api.md`**.
 7. Bei neuen Bibliotheken (Firmware oder Web): **`firmware/lib/README.md`**.
+8. Beim Testen ohne Display/Drehgeber/Handy: **`firmware/src/console/README.md`**.
 
 Wenn du als KI diese Dateien nicht vorliegen hast, **fordere sie an** — arbeite
 nie aus dem Gedächtnis oder aus Vermutungen über die Schnittstellen.
