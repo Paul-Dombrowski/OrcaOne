@@ -1,0 +1,15 @@
+# ============================================================================
+#  idf_component.yml - Fremd-Abhaengigkeiten (ESP-IDF Component Manager)
+# ----------------------------------------------------------------------------
+#  idf.py laedt diese beim Build automatisch nach firmware/managed_components/
+#  (nicht im Repo). Neue Registry-Bibliotheken HIER eintragen - das ersetzt
+#  das fruehere "lib_deps" aus platformio.ini. Details: ../components/README.md
+# ============================================================================
+dependencies:
+  # Fester Rahmen: stabiler Arduino-Core 3.3.x laeuft NUR mit ESP-IDF 5.5.x.
+  # Mit einer anderen IDF-Version bricht der Build bewusst ab (Versionsschutz).
+  idf: ">=5.5,<5.6"
+
+  # Arduino-Core fuer ESP32 als Komponente -> Arduino.h, setup()/loop(),
+  # Wire/SPI usw. stehen zur Verfuegung.
+  espressif/arduino-esp32: "~3.3.0"

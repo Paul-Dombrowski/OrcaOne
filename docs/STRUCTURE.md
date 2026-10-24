@@ -20,8 +20,10 @@ OrcaOne/
 │  └─ superpowers/specs/     → Design-Dokumente (Architektur-Entscheidungen)
 │
 ├─ firmware/                 → der Code, der auf dem ESP32 läuft (C++/Arduino)
-│  ├─ platformio.ini         → Build-Konfiguration + Bibliotheken (lib_deps) (flasht web/ aufs Gerät)
-│  ├─ lib/                   → Fremd-Bibliotheken als Code im Repo (nur wenn nicht per lib_deps möglich)
+│  ├─ CMakeLists.txt         → ESP-IDF-Projektdefinition (Build/Flash mit idf.py)
+│  ├─ sdkconfig.defaults     → ESP-IDF-Grundeinstellungen (u. a. Arduino-Autostart)
+│  ├─ main/                  → ESP-IDF-Einstiegskomponente: bindet src/ ein, lädt Arduino-Core
+│  ├─ components/            → Fremd-Bibliotheken als ESP-IDF-Komponenten (ex-lib/)
 │  ├─ web/                   → Aufgabe 4: Weboberfläche fürs Handy (wird auf den ESP32 geladen)
 │  │  ├─ index.html          → Bedienoberfläche
 │  │  ├─ css/                → Styling
@@ -127,5 +129,7 @@ So bekommt eine KI genug Kontext, ohne das ganze Projekt zu „kennen".
 - **Teil-Hardware:** Niemand hat alle Bauteile. Fehlt eines, läuft der Rest
   weiter, und alles ist über den Serial Monitor bedienbar
   ([`ARBEITSWEISE.md`](ARBEITSWEISE.md) §6, [`firmware/src/console/`](../firmware/src/console/)).
-- **Fremd-Bibliotheken** zuerst über `lib_deps` in `platformio.ini`, nur im
-  Ausnahmefall als Code nach `firmware/lib/`. Ablauf: [`firmware/lib/README.md`](../firmware/lib/README.md).
+- **Fremd-Bibliotheken** als ESP-IDF-Komponenten: Registry-Abhängigkeit in
+  `firmware/main/idf_component.yml` oder Code nach `firmware/components/`. Ablauf:
+  [`firmware/components/README.md`](../firmware/components/README.md).
+- **Build/Flash:** ESP-IDF (`idf.py build` / `idf.py flash`), nicht PlatformIO.

@@ -1,15 +1,23 @@
 # firmware/ — Der Code für den ESP32
 
 Das ist das Programm, das auf dem Mikrocontroller läuft. Geschrieben in C++ mit
-dem Arduino-Framework, gebaut mit **PlatformIO**.
+dem **Arduino-Framework**, gebaut und geflasht mit **ESP-IDF** (`idf.py`).
+
+> Arduino **und** ESP-IDF? ESP-IDF ist das Build-/Flash-System; der Arduino-Core
+> wird als Komponente geladen (`main/idf_component.yml`). Dadurch bleibt der Code
+> Arduino-Code (`setup()`/`loop()`, `Arduino.h`), aber gebaut wird mit `idf.py`.
 
 ## Aufbau
 
 ```
 firmware/
-├─ platformio.ini   → Board + Bibliotheken (lib_deps) (nicht löschen)
-├─ lib/             → Fremd-Bibliotheken als Code im Repo (Ausnahmefall, siehe lib/README.md)
-├─ web/             → wird ins ESP32-Dateisystem geladen (Weboberfläche)
+├─ CMakeLists.txt      → ESP-IDF-Projektdefinition (nicht löschen)
+├─ sdkconfig.defaults  → ESP-IDF-Grundeinstellungen (u. a. Arduino-Autostart)
+├─ main/               → ESP-IDF-Einstiegskomponente: bindet src/ ein, lädt Arduino
+│  ├─ CMakeLists.txt   → registriert den Code aus ../src automatisch
+│  └─ idf_component.yml→ Fremd-Abhängigkeiten (ersetzt das alte lib_deps)
+├─ components/         → Fremd-Bibliotheken als Komponenten (siehe components/README.md)
+├─ web/               → wird ins ESP32-Dateisystem geladen (Weboberfläche)
 └─ src/
    ├─ main.cpp      → setup() + loop(), verbindet alle Teile
    ├─ config.h      → Pins, WLAN, Timings (zentrale Einstellungen)
@@ -20,40 +28,52 @@ firmware/
    └─ console/      → Serial-Konsole (Bedienung über den Serial Monitor)
 ```
 
-## Bibliotheken hinzufügen
-
-Normalfall: eine Zeile in `lib_deps` in `platformio.ini`. Nur wenn das nicht
-geht, kommt der Code nach `lib/`. Die genaue Entscheidungsreihenfolge steht in
-[`lib/README.md`](lib/README.md).
-
 ## Einrichten (einmalig pro Rechner)
 
-1. **VS Code** installieren, darin die Erweiterung **PlatformIO IDE**.
-2. Dieses `firmware/`-Verzeichnis in VS Code öffnen.
-3. PlatformIO lädt die Bibliotheken aus `platformio.ini` automatisch.
+1. **ESP-IDF v5.5.x** installieren (Espressif-Anleitung „ESP-IDF Get Started").
+   Wichtig: genau die 5.5-Reihe — der stabile Arduino-Core 3.3.x ist daran
+   gebunden. Eine andere IDF-Version lässt den Build bewusst abbrechen.
+   (Mehrere IDF-Versionen dürfen parallel installiert sein.)
+2. ESP-IDF-Umgebung aktivieren (unter Windows: „ESP-IDF PowerShell"/„ESP-IDF CMD",
+   oder `export.ps1`/`export.bat` aus dem IDF-Ordner).
+3. In diesen `firmware/`-Ordner wechseln.
 
 ## Bauen & Hochladen
 
-- **Build** (Haken-Symbol unten) → kompiliert den Code.
-- **Upload** (Pfeil-Symbol) → flasht die Firmware auf den angeschlossenen ESP32.
-- **Upload Filesystem Image** → lädt die Weboberfläche (`web/`) auf den ESP32.
-- **Monitor** (Stecker-Symbol) → zeigt die `Serial.println`-Ausgaben (115200 Baud).
-  Dort lassen sich auch **Befehle eintippen** (z. B. `nfc read`, `help`) und das
-  Menü mit `up`/`down`/`ok`/`back` bedienen. So geht alles auch ohne Display,
-  Drehgeber oder Handy. Siehe [`src/console/README.md`](src/console/README.md).
+Alle Befehle im `firmware/`-Ordner, in der aktivierten ESP-IDF-Umgebung:
+
+```
+idf.py set-target esp32      # einmalig: Ziel-Chip (ESP32 D1 R32 = klassischer ESP32)
+idf.py build                 # kompilieren; beim 1. Mal wird der Arduino-Core geladen
+idf.py -p <PORT> flash       # auf den ESP32 flashen (<PORT> z. B. COM5)
+idf.py -p <PORT> monitor     # Serial Monitor; beenden mit Strg+]
+```
+
+Kurzform für Flashen + Monitor: `idf.py -p <PORT> flash monitor`.
+
+## Bibliotheken hinzufügen
+
+Registry-Bibliothek → Zeile in `main/idf_component.yml`. Arduino-Bibliothek ohne
+IDF-Paket → nach `components/`. Genaue Reihenfolge und das Komponenten-Muster:
+[`components/README.md`](components/README.md).
 
 ## Nicht alle Bauteile da?
 
 Kein Problem, das ist der Normalfall. Was nicht angeschlossen ist, funktioniert
 nicht, alles andere läuft normal weiter. Regel für den Code:
-[`../docs/ARBEITSWEISE.md`](../docs/ARBEITSWEISE.md) §6 Regel 5.
+[`../docs/ARBEITSWEISE.md`](../docs/ARBEITSWEISE.md) §6 Regel 5. Bedienen und
+testen lässt sich alles über den Serial Monitor (`idf.py monitor`), siehe
+[`src/console/README.md`](src/console/README.md).
 
 ## Wie die Weboberfläche auf den ESP32 kommt
 
-Die Dateien, die der Browser lädt, müssen im Flash des ESP32 liegen. Sie liegen
-direkt in [`web/`](web/); `platformio.ini` ist so eingestellt, dass **genau dieser
-Ordner** beim „Upload Filesystem Image" aufs Gerät geladen wird — **kein
-Kopierschritt** nötig. (Siehe [`web/README.md`](web/README.md).)
+Die Dateien, die der Browser lädt, liegen in [`web/`](web/) und müssen in ein
+eigenes Flash-Dateisystem (LittleFS) des ESP32.
+
+> ⚠️ **Noch offen (Schritt 3):** Unter PlatformIO erledigte das „Upload Filesystem
+> Image". Unter ESP-IDF braucht es eine LittleFS-Partition + einen Image-Schritt
+> (Partitionstabelle + Komponente zum Erzeugen/Flashen des Images). Das wird beim
+> Anbinden der Weboberfläche eingerichtet und hier ergänzt.
 
 ## Reihenfolge der Umsetzung (empfohlen)
 

@@ -1,6 +1,8 @@
-# PlatformIO Build-Artefakte (werden lokal erzeugt, nicht ins Repo)
-.pio/
-firmware/.pio/
+# ESP-IDF Build-Artefakte (werden lokal erzeugt, nicht ins Repo)
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
 
 # IDE
 .vscode/

@@ -21,7 +21,7 @@ Bevor du mit einer Aufgabe beginnst, lies in dieser Reihenfolge:
 4. Bei Speicherung: **`firmware/src/storage/README.md`** (wie man speichert).
 5. Bei Hardware/Pins: **`docs/hardware/pinbelegung.md`**.
 6. Bei Handy ↔ ESP32: **`docs/kommunikation/web-api.md`**.
-7. Bei neuen Bibliotheken (Firmware oder Web): **`firmware/lib/README.md`**.
+7. Bei neuen Bibliotheken (Firmware oder Web): **`firmware/components/README.md`**.
 8. Beim Testen ohne Display/Drehgeber/Handy: **`firmware/src/console/README.md`**.
 
 Wenn du als KI diese Dateien nicht vorliegen hast, **fordere sie an** — arbeite
@@ -40,11 +40,11 @@ richtigen Ort an.
 | Gemeinsamer Firmware-Dienst (von mehreren Modulen genutzt) | `firmware/src/<dienst>/` | `storage/` |
 | Dokumentation / Planung | `docs/<thema>/` | `docs/hardware/` |
 | Quellcode der Weboberfläche | `firmware/web/` | `firmware/web/js/app.js` |
-| Fremd-Bibliothek aus Registry/GitHub (Normalfall) | Eintrag in `lib_deps` in `firmware/platformio.ini` | `adafruit/Adafruit NeoPixel@^1.12.0` |
-| Fremd-Bibliothek als Code im Repo (verändert / kein Paket) | `firmware/lib/<Name>/` | `firmware/lib/MyLib/` |
+| Fremd-Bibliothek aus der ESP-IDF-Registry (Normalfall) | Abhängigkeit in `firmware/main/idf_component.yml` | `espressif/arduino-esp32` |
+| Fremd-Bibliothek als Code im Repo (Arduino-Lib ohne IDF-Paket) | `firmware/components/<Name>/` (mit eigener `CMakeLists.txt`) | `firmware/components/PN532/` |
 | Fremd-JS/CSS für die Weboberfläche | `firmware/web/vendor/` | `firmware/web/vendor/chart.min.js` |
 
-Bei Bibliotheken entscheidet die Reihenfolge in `firmware/lib/README.md`.
+Bei Bibliotheken entscheidet die Reihenfolge in `firmware/components/README.md`.
 
 **Fallback-Regel (wichtig):** Fehlt für etwas eine Kategorie, entscheide nach Art:
 - Es ist eine **Gerätefunktion** → unter `firmware/src/modules/<name>/`.

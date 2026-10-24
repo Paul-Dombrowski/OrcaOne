@@ -1,0 +1,19 @@
+# ============================================================================
+#  sdkconfig.defaults - ESP-IDF-Grundeinstellungen fuer OrcaOne
+# ----------------------------------------------------------------------------
+#  Diese Datei legt die WICHTIGEN Voreinstellungen fest und gehoert ins Repo.
+#  Die tatsaechliche Konfigurationsdatei "sdkconfig" wird daraus beim Build
+#  erzeugt und ist NICHT im Repo (jeder Rechner erzeugt sie selbst).
+#  Aendern per "idf.py menuconfig" oder direkt hier.
+# ============================================================================
+
+# Nach dem Boot automatisch Arduinos setup()/loop() starten (src/main.cpp).
+# OHNE diese Zeile laeuft der Arduino-Code nicht.
+CONFIG_AUTOSTART_ARDUINO=y
+
+# Arduino erwartet 1000 Hz Tickrate -> millis()/delay() in Millisekunden genau.
+CONFIG_FREERTOS_HZ=1000
+
+# Groesserer Stack fuer die Arduino-Loop-Task (Webserver + Bibliotheken
+# brauchen Platz; Standard ist oft zu klein und fuehrt zu Abstuerzen).
+CONFIG_ARDUINO_LOOP_STACK_SIZE=16384
