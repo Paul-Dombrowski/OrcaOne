@@ -63,6 +63,11 @@
 // Muss ein ANDERER Pin sein als PIN_NRF_CSN. Erst dann einkommentieren.
 // #define PIN_SD_CS      16
 
+// ---- On-Board-LED (Test: blinkt, wenn Build + Flash funktionieren) ----
+// D1 R32: blaue LED an GPIO2.
+#define PIN_LED_BUILTIN    2
+#define LED_BLINK_MS     500   // halbe Periode: 500 ms an, 500 ms aus
+
 // ---- Timings ----
 #define STATUS_PUSH_MS   500   // wie oft der Status ans Handy geschickt wird (ms)
 

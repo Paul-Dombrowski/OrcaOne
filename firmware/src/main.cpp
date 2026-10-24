@@ -44,9 +44,27 @@
 // Alle Module in einer Liste, damit loop() sie einheitlich durchlaufen kann.
 // Module* modules[] = { &display, &input, &nfc, &ir, &jammer };
 
+// --- TEST: On-Board-LED blinken lassen ------------------------------------
+// Zeigt, dass Ordnerstruktur, ESP-IDF-Build und Arduino-Komponente
+// funktionieren. Nicht blockierend (millis statt delay), damit es spaeter
+// neben den Modulen weiterlaufen kann. Entfernen, sobald echte Module laufen.
+static unsigned long lastBlink = 0;
+static bool ledOn = false;
+
+static void blinkUpdate() {
+  if (millis() - lastBlink < LED_BLINK_MS) return;
+  lastBlink = millis();
+  ledOn = !ledOn;
+  digitalWrite(PIN_LED_BUILTIN, ledOn ? HIGH : LOW);
+  Serial.println(ledOn ? "[test] LED an" : "[test] LED aus");
+}
+// --------------------------------------------------------------------------
+
 void setup() {
   Serial.begin(115200);
   Serial.println("\n[OrcaOne] Start...");
+
+  pinMode(PIN_LED_BUILTIN, OUTPUT);   // TEST: On-Board-LED
 
   // TODO: jedes Modul initialisieren
   // for (Module* m : modules) m->begin();
@@ -63,6 +81,8 @@ void setup() {
 }
 
 void loop() {
+  blinkUpdate();   // TEST: On-Board-LED
+
   // TODO: jedem Modul Rechenzeit geben (alle update()s sind nicht-blockierend)
   // for (Module* m : modules) m->update();
 
