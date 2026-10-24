@@ -11,7 +11,10 @@ docs/ARBEITSWEISE.md · diese README · core/Module.h · storage/README.md
 ---
 
 **Hardware:** PN532-Modul über I2C (SDA = GPIO21, SCL = GPIO22, Adresse 0x24).
-**Bibliothek:** `Adafruit PN532`.
+**Bibliothek:** Elechouse/Seeed-`PN532` + `PN532_I2C` (Transport) + `NDEF`
+(NDEF-Inhalte). Liegen als Komponenten in `firmware/components/`
+(siehe [`../../../components/README.md`](../../../components/README.md)) —
+**nicht** Adafruit PN532.
 **Rolle:** Sensor (Tag lesen) **und** Aktor (Tag beschreiben/klonen).
 `name()` = `"nfc"`.
 
@@ -49,20 +52,35 @@ einen anderen Leser.
 - **PN532 fehlt:** `nfc.getFirmwareVersion()` liefert `0`. Dann einmal
   `[nfc] PN532 nicht gefunden - Modul inaktiv` ausgeben, `ok = false`, `update()`
   tut nichts, `handleCommand()` gibt `false` zurück.
-- ⚠️ Der Beispiel-Sketch der Adafruit-Bibliothek macht an dieser Stelle
-  `while (1);`. **Nicht übernehmen**, sonst hängt das ganze Gerät, sobald jemand
-  ohne PN532 testet.
+- ⚠️ Die Beispiel-Sketche dieser Bibliothek machen an dieser Stelle `while (1);`.
+  **Nicht übernehmen**, sonst hängt das ganze Gerät, sobald jemand ohne PN532
+  testet.
 - Das OLED-Display teilt sich den I2C-Bus mit dem PN532. Fehlt eines der beiden,
   funktioniert das andere trotzdem.
 - **Testen ohne Display/Handy:** im Serial Monitor `nfc read`, danach `status`.
 
 ## Umsetzungshinweise (auch für KI)
 
-- In `begin()`: `nfc.begin()` und `nfc.SAMConfig()` aufrufen. Fehlerfall siehe
-  „Ohne Hardware“.
-- In `update()`: **nicht blockierend** nach einem Tag suchen. Die Adafruit-
-  Funktion `readPassiveTargetID(...)` kann mit kurzem Timeout aufgerufen werden;
-  pro Durchlauf nur ein kurzer Versuch, dann zurückkehren.
+- Einbinden (I2C):
+  ```cpp
+  #include <Wire.h>
+  #include <PN532_I2C.h>
+  #include <PN532.h>
+  // optional fuer NDEF-Inhalte:
+  #include <NfcAdapter.h>
+
+  PN532_I2C pn532_i2c(Wire);
+  PN532     nfc(pn532_i2c);          // oder: NfcAdapter nfc(pn532_i2c);
+  ```
+- In `begin()`: `Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL)`, dann `nfc.begin()`,
+  `nfc.getFirmwareVersion()` prüfen (Fehlerfall siehe „Ohne Hardware“),
+  danach `nfc.SAMConfig()`.
+- In `update()`: **nicht blockierend** nach einem Tag suchen.
+  `readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, timeout)` mit
+  **kurzem** `timeout` (z. B. 50 ms) aufrufen; pro Durchlauf nur ein kurzer
+  Versuch, dann zurückkehren.
+- NDEF-Inhalte (optional): über `NfcAdapter` — `tagPresent()`, `read()` →
+  `NfcTag`, `write(message)`.
 - Pins/Adresse ausschließlich aus [`../../config.h`](../../config.h) nehmen.
 - Speichern über `Storage.save("nfc", "slot1", jsonText)`; vorher `Storage.available()`
   prüfen, aber **nie abbrechen**, wenn keine SD da ist (dann nur flüchtig im RAM).

@@ -93,6 +93,11 @@ idf_component_register(
 
 | Ordner | Zweck | Genutzt von |
 |---|---|---|
-| *(noch keine — kommt in Schritt 3)* | | |
+| `PN532/` | PN532-Kern-Treiber (Elechouse/Seeed) | `modules/nfc` |
+| `PN532_I2C/` | I2C-Transport für den PN532 | `modules/nfc` |
+| `NDEF/` | NDEF-Nachrichten lesen/schreiben (Don Coleman) | `modules/nfc` |
 
 Beim Hinzufügen hier eine Zeile ergänzen.
+
+> Noch offen: je ein `HERKUNFT.md` (Quelle/Version/Lizenz) pro Komponente — bitte
+> die Download-Quelle eintragen, die bei dir verwendet wurde.
