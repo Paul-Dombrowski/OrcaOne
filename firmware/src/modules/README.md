@@ -68,6 +68,9 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
 }
 ```
 
+Nach dem Anlegen neuer `.cpp`-Dateien **einmal `idf.py reconfigure`** ausführen,
+sonst kompiliert ESP-IDF sie nicht mit (Fehler „undefined reference“).
+
 Danach das Modul in [`../main.cpp`](../main.cpp) einbinden, ein Objekt anlegen
 und in die `modules[]`-Liste eintragen. Fertig — Menü, Handy **und Serial Monitor**
 können es dann automatisch ansprechen (z. B. `nfc read` im Monitor).
