@@ -7,15 +7,23 @@ dem Arduino-Framework, gebaut mit **PlatformIO**.
 
 ```
 firmware/
-├─ platformio.ini   → Board + Bibliotheken (nicht löschen)
-├─ data/            → wird ins ESP32-Dateisystem geladen (Weboberfläche)
+├─ platformio.ini   → Board + Bibliotheken (lib_deps) (nicht löschen)
+├─ lib/             → Fremd-Bibliotheken als Code im Repo (Ausnahmefall, siehe lib/README.md)
+├─ web/             → wird ins ESP32-Dateisystem geladen (Weboberfläche)
 └─ src/
    ├─ main.cpp      → setup() + loop(), verbindet alle Teile
    ├─ config.h      → Pins, WLAN, Timings (zentrale Einstellungen)
    ├─ core/         → Modul-Vertrag, Auto/Manuell-Modus, Menü
-   ├─ modules/      → die einzelnen Funktionen (nfc, ir, jammer, display, input)
+   ├─ storage/      → zentraler Speicher-Dienst
+   ├─ modules/      → die einzelnen Funktionen (nfc, ir, jammer, display, input, sdcard)
    └─ network/      → WLAN-Hotspot + Webserver + WebSocket
 ```
+
+## Bibliotheken hinzufügen
+
+Normalfall: eine Zeile in `lib_deps` in `platformio.ini`. Nur wenn das nicht
+geht, kommt der Code nach `lib/`. Die genaue Entscheidungsreihenfolge steht in
+[`lib/README.md`](lib/README.md).
 
 ## Einrichten (einmalig pro Rechner)
 

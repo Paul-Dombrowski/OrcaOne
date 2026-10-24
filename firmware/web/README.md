@@ -28,6 +28,17 @@ eingestellt. Kein Kopieren nötig.
    öffnen (steht im Serial-Monitor). Für die Demo: **QR-Code** auf diese Adresse
    (Aufgabe 5).
 
+## Fremd-Bibliotheken (JS/CSS)
+
+- Ablage: **`vendor/`** in diesem Ordner (bei Bedarf anlegen), z. B.
+  `vendor/chart.min.js`, eingebunden mit `<script src="vendor/chart.min.js">`.
+- **Kein CDN-Link** (`https://cdn...`): Das Handy hängt im WLAN des ESP32 und hat
+  dort **kein Internet**, die Datei würde nicht laden.
+- Immer die **minifizierte** Version (`*.min.js` / `*.min.css`) nehmen. Der
+  Speicher auf dem ESP32 (LittleFS) ist klein (ca. 1,5 MB für alles in `web/`).
+- Lizenzdatei mit ablegen (`vendor/<name>.LICENSE.txt`). Allgemeine Regeln:
+  [`../lib/README.md`](../lib/README.md).
+
 ## Testen ohne ESP32
 
 `index.html` lässt sich zum Layout-Test direkt im Browser öffnen. Die

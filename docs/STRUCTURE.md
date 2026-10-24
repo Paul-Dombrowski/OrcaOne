@@ -20,11 +20,13 @@ OrcaOne/
 │  └─ superpowers/specs/     → Design-Dokumente (Architektur-Entscheidungen)
 │
 ├─ firmware/                 → der Code, der auf dem ESP32 läuft (C++/Arduino)
-│  ├─ platformio.ini         → Build-Konfiguration + Bibliotheken (flasht web/ aufs Gerät)
+│  ├─ platformio.ini         → Build-Konfiguration + Bibliotheken (lib_deps) (flasht web/ aufs Gerät)
+│  ├─ lib/                   → Fremd-Bibliotheken als Code im Repo (nur wenn nicht per lib_deps möglich)
 │  ├─ web/                   → Aufgabe 4: Weboberfläche fürs Handy (wird auf den ESP32 geladen)
 │  │  ├─ index.html          → Bedienoberfläche
 │  │  ├─ css/                → Styling
-│  │  └─ js/                 → Logik + WebSocket-Verbindung zum ESP32
+│  │  ├─ js/                 → Logik + WebSocket-Verbindung zum ESP32
+│  │  └─ vendor/             → (bei Bedarf) Fremd-JS/CSS, lokal statt CDN
 │  └─ src/
 │     ├─ main.cpp            → Einstiegspunkt: setup() + loop(), verdrahtet alles
 │     ├─ config.h            → zentrale Einstellungen (Pins, WLAN, Slots) — Board-Stelle
@@ -121,3 +123,5 @@ So bekommt eine KI genug Kontext, ohne das ganze Projekt zu „kennen".
 - **Keine blockierenden Wartezeiten** (`delay()`) in `update()` — sonst hängt das
   ganze Gerät. Begründung steht in [`firmware/src/core/README.md`](../firmware/src/core/README.md).
 - **Geheimnisse** (echte WLAN-Passwörter o. Ä.) gehören nicht ins Repo.
+- **Fremd-Bibliotheken** zuerst über `lib_deps` in `platformio.ini`, nur im
+  Ausnahmefall als Code nach `firmware/lib/`. Ablauf: [`firmware/lib/README.md`](../firmware/lib/README.md).
