@@ -20,13 +20,6 @@ Die **eigentliche Störfunktion implementiert die Gruppe selbst** — dieses
 README beschreibt nur die Einbindung ins Gerät (Vertrag, Menüpunkt, Status),
 nicht die Sendelogik.
 
-> ⚠️ **Rechtlich & betrieblich:** Der Betrieb von Störsendern ist stark reguliert.
-> Dieses Modul nur in dem Rahmen aktivieren, der für das Projekt **ausdrücklich
-> abgestimmt** wurde. **Nicht während der Live-Demo laufen lassen**, solange die
-> WLAN-Fernsteuerung (Aufgabe 3) vorgeführt wird: ein aktives 2,4-GHz-Modul stört
-> genau das eigene WLAN und das der Nachbarstände. Als Sicherheitsnetz einen
-> klaren Aus-Schalter/Not-Aus im Menü und in der Weboberfläche vorsehen.
-
 ## Vertrag (wie bei jedem Modul)
 
 | Methode | Zweck |
