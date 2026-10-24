@@ -31,11 +31,11 @@ Automatik, bidirektionale Kommunikation …) stehen in
    nach dem **alle** (Menschen wie KIs) gleich arbeiten. **Zuerst lesen.**
 2. **[`docs/STRUCTURE.md`](docs/STRUCTURE.md)** — erklärt den gesamten Aufbau des
    Projekts und **wo was liegt**.
-2. Deinen Arbeitsbereich finden (jede Person betreut eigene Module/Ordner):
+3. Deinen Arbeitsbereich finden (jede Person betreut eigene Module/Ordner):
    - Firmware-Module: [`firmware/src/modules/`](firmware/src/modules/)
    - Weboberfläche: [`firmware/web/`](firmware/web/)
    - Doku/Planung: [`docs/`](docs/)
-3. In **jedem** Ordner liegt eine `README.md`, die genau beschreibt, was dort
+4. In **jedem** Ordner liegt eine `README.md`, die genau beschreibt, was dort
    hineingehört und wie es mit dem Rest zusammenspielt. Diese Beschreibungen sind
    auch so geschrieben, dass eine KI damit gezielt arbeiten kann — gib der KI
    immer die `README.md` des jeweiligen Ordners als Kontext mit.
