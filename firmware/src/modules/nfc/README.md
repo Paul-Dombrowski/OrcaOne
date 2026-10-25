@@ -93,6 +93,12 @@ einen anderen Leser.
 - `update()` fragt mit Intervall und begrenztem Timeout ab. Der PN532-Treiber
   wartet intern synchron auf I²C-Antworten; jeder Versuch ist daher zeitlich
   begrenzt, aber nicht vollständig asynchron.
+- Der PN532 erhält am bereits von `Wire` initialisierten Bus einen eigenen
+  ESP-IDF-I²C-Gerätehandle. Dessen SCL-Clock-Stretch-Timeout ist auf 20 ms
+  gesetzt (statt des ESP32-Arduino-Defaults von 2 ms), weil der PN532 die
+  I²C-Taktleitung während interner Verarbeitung strecken kann.
+- Während des Wartens fragt der Treiber nur das einzelne PN532-Statusbyte ab;
+  den Antwortframe liest er erst, sobald der PN532 „bereit“ meldet.
 - Vor dem Scannen wird `setPassiveActivationRetries()` auf einen endlichen Wert
   gesetzt. Der PN532 muss einen Suchbefehl beenden können, bevor `update()` den
   nächsten sendet; der Host-Timeout ist dafür größer als ein einzelnes Retry.

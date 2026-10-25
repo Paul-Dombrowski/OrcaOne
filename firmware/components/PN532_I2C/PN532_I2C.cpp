@@ -22,15 +22,111 @@ void PN532_I2C::begin()
     }
 
     if (_sda >= 0 && _scl >= 0) {
-        _ready = _wire->begin(_sda, _scl);
+        _wire->begin(_sda, _scl);
     } else {
-        _ready = _wire->begin();
+        _wire->begin();
     }
+
+    i2c_master_bus_handle_t bus = nullptr;
+    if (i2c_master_get_bus_handle(
+            static_cast<i2c_port_t>(_wire->getBusNum()), &bus) != ESP_OK) {
+        return;
+    }
+
+    const i2c_device_config_t deviceConfig = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = _address,
+        .scl_speed_hz = 100000,
+        .scl_wait_us = 20000,
+        .flags = {
+            .disable_ack_check = false,
+        },
+    };
+    _ready = i2c_master_bus_add_device(bus, &deviceConfig, &_device) == ESP_OK;
+}
+
+void PN532_I2C::beginTransmission()
+{
+    _txLength = 0;
+}
+
+uint8_t PN532_I2C::write(uint8_t data)
+{
+    if (_txLength >= sizeof(_txBuffer)) {
+        return 0;
+    }
+
+    _txBuffer[_txLength++] = data;
+    return 1;
+}
+
+uint8_t PN532_I2C::endTransmission()
+{
+    const esp_err_t result =
+        i2c_master_transmit(_device, _txBuffer, _txLength, 100);
+    _txLength = 0;
+    return result == ESP_OK ? 0 : 1;
+}
+
+size_t PN532_I2C::requestFrom(size_t length)
+{
+    _rxIndex = 0;
+    _rxLength = 0;
+    if (length == 0 || length > sizeof(_rxBuffer)) {
+        return 0;
+    }
+
+    if (i2c_master_receive(_device, _rxBuffer, length, 100) != ESP_OK) {
+        return 0;
+    }
+
+    _rxLength = length;
+    return _rxLength;
+}
+
+int PN532_I2C::read()
+{
+    if (_rxIndex >= _rxLength) {
+        return -1;
+    }
+    return _rxBuffer[_rxIndex++];
+}
+
+int PN532_I2C::available() const
+{
+    return static_cast<int>(_rxLength - _rxIndex);
 }
 
 void PN532_I2C::wakeup()
 {
     delay(500); // wait for all ready to manipulate pn532
+}
+
+void PN532_I2C::drainReadBuffer()
+{
+    while (available() > 0) {
+        read();
+    }
+}
+
+bool PN532_I2C::waitReady(uint16_t timeout)
+{
+    uint16_t time = 0;
+    do {
+        if (requestFrom(1) == 1) {
+            const int status = read();
+            if (status >= 0 && (status & 1)) {
+                return true;
+            }
+        }
+
+        drainReadBuffer();
+        delay(1);
+        time++;
+        if (timeout != 0 && time > timeout) {
+            return false;
+        }
+    } while (1);
 }
 
 int8_t PN532_I2C::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_t *body, uint8_t blen)
@@ -40,7 +136,7 @@ int8_t PN532_I2C::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_
     }
 
     command = header[0];
-    _wire->beginTransmission(_address);
+    beginTransmission();
     
     write(PN532_PREAMBLE);
     write(PN532_STARTCODE1);
@@ -81,7 +177,7 @@ int8_t PN532_I2C::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_
     write(checksum);
     write(PN532_POSTAMBLE);
     
-    if (_wire->endTransmission() != 0) {
+    if (endTransmission() != 0) {
         return PN532_INVALID_FRAME;
     }
 
@@ -92,43 +188,43 @@ int8_t PN532_I2C::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_
 
 int16_t PN532_I2C::getResponseLength(uint8_t buf[], uint8_t len, uint16_t timeout) {
     const uint8_t PN532_NACK[] = {0, 0, 0xFF, 0xFF, 0, 0};
-    uint16_t time = 0;
     (void)buf;
     (void)len;
 
-    do {
-        if (_wire->requestFrom(_address, 6)) {
-            if (read() & 1) {  // check first byte --- status
-                break;         // PN532 is ready
-            }
-        }
-
-        delay(1);
-        time++;
-        if ((0 != timeout) && (time > timeout)) {
-            return -1;
-        }
-    } while (1); 
+    if (!waitReady(timeout)) {
+        return -1;
+    }
+    if (requestFrom(6) != 6 || available() < 6) {
+        drainReadBuffer();
+        return PN532_INVALID_FRAME;
+    }
+    const int status = read();
+    if (status < 0 || !(status & 1)) {
+        drainReadBuffer();
+        return PN532_INVALID_FRAME;
+    }
     
     if (0x00 != read()      ||       // PREAMBLE
             0x00 != read()  ||       // STARTCODE1
             0xFF != read()           // STARTCODE2
         ) {
-        
+        drainReadBuffer();
         return PN532_INVALID_FRAME;
     }
     
     const uint8_t length = read();
-    if (length < 2) {
+    const uint8_t lengthChecksum = read();
+    if (length < 2 || static_cast<uint8_t>(length + lengthChecksum) != 0) {
+        drainReadBuffer();
         return PN532_INVALID_FRAME;
     }
 
     // request for last respond msg again
-    _wire->beginTransmission(_address);
+    beginTransmission();
     for (uint16_t i = 0; i < sizeof(PN532_NACK); ++i) {
       write(PN532_NACK[i]);
     }
-    if (_wire->endTransmission() != 0) {
+    if (endTransmission() != 0) {
         return PN532_INVALID_FRAME;
     }
 
@@ -141,7 +237,6 @@ int16_t PN532_I2C::readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
         return PN532_INVALID_FRAME;
     }
 
-    uint16_t time = 0;
     const int16_t responseLength = getResponseLength(buf, len, timeout);
     if (responseLength < 2 || responseLength > 24 ||
         responseLength - 2 > len) {
@@ -150,44 +245,48 @@ int16_t PN532_I2C::readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
     const uint8_t expectedLength = static_cast<uint8_t>(responseLength);
 
     // [RDY] 00 00 FF LEN LCS (TFI PD0 ... PDn) DCS 00
-    do {
-        if (_wire->requestFrom(_address, 6 + expectedLength + 2)) {
-            if (read() & 1) {  // check first byte --- status
-                break;         // PN532 is ready
-            }
-        }
-
-        delay(1);
-        time++;
-        if ((0 != timeout) && (time > timeout)) {
-            return -1;
-        }
-    } while (1); 
+    if (!waitReady(timeout)) {
+        return -1;
+    }
+    const uint8_t frameSize = 6 + expectedLength + 2;
+    if (requestFrom(frameSize) != frameSize || available() < frameSize) {
+        drainReadBuffer();
+        return PN532_INVALID_FRAME;
+    }
+    const int status = read();
+    if (status < 0 || !(status & 1)) {
+        drainReadBuffer();
+        return PN532_INVALID_FRAME;
+    }
     
     if (0x00 != read()      ||       // PREAMBLE
             0x00 != read()  ||       // STARTCODE1
             0xFF != read()           // STARTCODE2
         ) {
-        
+        drainReadBuffer();
         return PN532_INVALID_FRAME;
     }
     
     uint8_t length = read();
     if (length != expectedLength) {
+        drainReadBuffer();
         return PN532_INVALID_FRAME;
     }
 
     if (0 != (uint8_t)(length + read())) {   // checksum of length
+        drainReadBuffer();
         return PN532_INVALID_FRAME;
     }
     
     uint8_t cmd = command + 1;               // response command
     if (PN532_PN532TOHOST != read() || (cmd) != read()) {
+        drainReadBuffer();
         return PN532_INVALID_FRAME;
     }
     
     length -= 2;
     if (length > len) {
+        drainReadBuffer();
         return PN532_NO_SPACE;  // not enough space
     }
     
@@ -206,10 +305,12 @@ int16_t PN532_I2C::readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
     uint8_t checksum = read();
     if (0 != (uint8_t)(sum + checksum)) {
         DMSG("checksum is not ok\n");
+        drainReadBuffer();
         return PN532_INVALID_FRAME;
     }
     read();         // POSTAMBLE
-    
+    drainReadBuffer();
+
     return length;
 }
 
@@ -222,21 +323,21 @@ int8_t PN532_I2C::readAckFrame()
     DMSG(millis());
     DMSG('\n');
     
-    uint16_t time = 0;
-    do {
-        if (_wire->requestFrom(_address, sizeof(PN532_ACK) + 1)) {
-            if (read() & 1) {  // check first byte --- status
-                break;         // PN532 is ready
-            }
-        }
-
-        delay(1);
-        time++;
-        if (time > PN532_ACK_WAIT_TIME) {
-            DMSG("Time out when waiting for ACK\n");
-            return PN532_TIMEOUT;
-        }
-    } while (1); 
+    if (!waitReady(PN532_ACK_WAIT_TIME)) {
+        DMSG("Time out when waiting for ACK\n");
+        return PN532_TIMEOUT;
+    }
+    if (requestFrom(sizeof(PN532_ACK) + 1) !=
+            sizeof(PN532_ACK) + 1 ||
+        available() < sizeof(PN532_ACK) + 1) {
+        drainReadBuffer();
+        return PN532_INVALID_FRAME;
+    }
+    const int status = read();
+    if (status < 0 || !(status & 1)) {
+        drainReadBuffer();
+        return PN532_INVALID_FRAME;
+    }
     
     DMSG("ready at : ");
     DMSG(millis());

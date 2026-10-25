@@ -6,6 +6,7 @@
 #define __PN532_I2C_H__
 
 #include <Wire.h>
+#include <driver/i2c_master.h>
 #include "PN532Interface.h"
 
 class PN532_I2C : public PN532Interface {
@@ -20,30 +21,28 @@ public:
     
 private:
     TwoWire* _wire;
+    i2c_master_dev_handle_t _device = nullptr;
     int _sda;
     int _scl;
     uint8_t _address;
     bool _ready = false;
     uint8_t command;
+    uint8_t _txBuffer[32] = {};
+    uint8_t _txLength = 0;
+    uint8_t _rxBuffer[32] = {};
+    size_t _rxLength = 0;
+    size_t _rxIndex = 0;
     
+    bool waitReady(uint16_t timeout);
+    void drainReadBuffer();
+    void beginTransmission();
+    uint8_t write(uint8_t data);
+    uint8_t endTransmission();
+    size_t requestFrom(size_t length);
+    int read();
+    int available() const;
     int8_t readAckFrame();
     int16_t getResponseLength(uint8_t buf[], uint8_t len, uint16_t timeout);
-    
-    inline uint8_t write(uint8_t data) {
-        #if ARDUINO >= 100
-            return _wire->write(data);
-        #else
-            return _wire->send(data);
-        #endif
-    }
-    
-    inline uint8_t read() {
-        #if ARDUINO >= 100
-            return _wire->read();
-        #else
-            return _wire->receive();
-        #endif
-    }
 };
 
 #endif

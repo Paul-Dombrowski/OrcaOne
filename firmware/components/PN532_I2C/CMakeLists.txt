@@ -2,5 +2,5 @@
 idf_component_register(
   SRCS "PN532_I2C.cpp"
   INCLUDE_DIRS "."
-  REQUIRES espressif__arduino-esp32 PN532
+  REQUIRES espressif__arduino-esp32 esp_driver_i2c PN532
 )

@@ -1,5 +1,5 @@
 - Quelle:      Seeed/Elechouse PN532 Arduino-Bibliothek; Upstream: https://github.com/Seeed-Studio/PN532
 - Version:     Im bestehenden Repository-Snapshot nicht dokumentiert; dort zuletzt vorhanden am 2026-10-24.
 - Lizenz:      BSD-style; siehe Lizenzdatei der PN532-Komponente.
-- Geändert:    ja — der I2C-Transport akzeptiert SDA/SCL-Pins und Adresse, damit das Modul die Werte aus config.h verwenden kann.
+- Geändert:    ja — der I2C-Transport akzeptiert SDA/SCL-Pins und Adresse aus config.h, nutzt einen eigenen ESP-IDF-Gerätehandle mit 20-ms-SCL-Clock-Stretch-Timeout und pollt zunächst nur das Statusbyte, bevor er den Antwortframe abruft.
 - Genutzt von: firmware/src/modules/nfc
