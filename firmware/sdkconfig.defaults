@@ -17,3 +17,7 @@ CONFIG_FREERTOS_HZ=1000
 # Groesserer Stack fuer die Arduino-Loop-Task (Webserver + Bibliotheken
 # brauchen Platz; Standard ist oft zu klein und fuehrt zu Abstuerzen).
 CONFIG_ARDUINO_LOOP_STACK_SIZE=16384
+
+# Das verwendete ESP32-Board besitzt 4 MB Flash; Image-Header passend setzen.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"

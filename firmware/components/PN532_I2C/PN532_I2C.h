@@ -13,6 +13,7 @@ public:
     PN532_I2C(TwoWire &wire, int sda = -1, int scl = -1, uint8_t address = 0x24);
     
     void begin();
+    bool isReady() const { return _ready; }
     void wakeup();
     virtual int8_t writeCommand(const uint8_t *header, uint8_t hlen, const uint8_t *body = 0, uint8_t blen = 0);
     int16_t readResponse(uint8_t buf[], uint8_t len, uint16_t timeout);
@@ -22,6 +23,7 @@ private:
     int _sda;
     int _scl;
     uint8_t _address;
+    bool _ready = false;
     uint8_t command;
     
     int8_t readAckFrame();

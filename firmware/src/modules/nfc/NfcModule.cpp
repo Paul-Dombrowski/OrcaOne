@@ -10,6 +10,11 @@ NfcModule::NfcModule()
 void NfcModule::begin() {
   _reader.begin();
 
+  if (!_transport.isReady()) {
+    Serial.println("[nfc] I2C-Bus konnte nicht initialisiert werden - Modul inaktiv");
+    return;
+  }
+
   const uint32_t version = _reader.getFirmwareVersion();
   if (version == 0) {
     Serial.println("[nfc] PN532 nicht gefunden - Modul inaktiv");
@@ -18,6 +23,11 @@ void NfcModule::begin() {
 
   if (!_reader.SAMConfig()) {
     Serial.println("[nfc] SAMConfig fehlgeschlagen - Modul inaktiv");
+    return;
+  }
+
+  if (!_reader.setPassiveActivationRetries(NFC_PASSIVE_RETRIES)) {
+    Serial.println("[nfc] Passive Retry-Konfiguration fehlgeschlagen - Modul inaktiv");
     return;
   }
 
@@ -57,6 +67,7 @@ void NfcModule::update() {
     formattedUid[i * 2 + 1] = HexDigits[uid[i] & 0x0F];
   }
   formattedUid[uidLength * 2] = '\0';
+
   _lastUid = formattedUid;
 
   Serial.print("[nfc] Card UID: ");

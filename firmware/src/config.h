@@ -42,7 +42,8 @@
 // ---- PN532 NFC/RFID (I2C) ----
 #define PN532_I2C_ADDR    0x24
 #define NFC_POLL_INTERVAL_MS 100
-#define NFC_READ_TIMEOUT_MS  50
+#define NFC_READ_TIMEOUT_MS  250
+#define NFC_PASSIVE_RETRIES  0x01
 
 // ---- Drehgeber KY-040 (Menue-Navigation) ----
 #define PIN_ENCODER_CLK   25

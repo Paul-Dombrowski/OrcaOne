@@ -307,7 +307,7 @@ bool PN532::SAMConfig(void)
     if (HAL(writeCommand)(pn532_packetbuffer, 4))
         return false;
 
-    return (0 < HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer)));
+    return (0 <= HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer)));
 }
 
 /**************************************************************************/
@@ -331,7 +331,7 @@ bool PN532::setPassiveActivationRetries(uint8_t maxRetries)
     if (HAL(writeCommand)(pn532_packetbuffer, 5))
         return 0x0;  // no ACK
 
-    return (0 < HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer)));
+    return (0 <= HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer)));
 }
 
 /**************************************************************************/

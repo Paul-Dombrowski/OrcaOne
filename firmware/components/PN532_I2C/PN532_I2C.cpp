@@ -17,10 +17,14 @@ PN532_I2C::PN532_I2C(TwoWire &wire, int sda, int scl, uint8_t address)
 
 void PN532_I2C::begin()
 {
+    if (_ready) {
+        return;
+    }
+
     if (_sda >= 0 && _scl >= 0) {
-        _wire->begin(_sda, _scl);
+        _ready = _wire->begin(_sda, _scl);
     } else {
-        _wire->begin();
+        _ready = _wire->begin();
     }
 }
 
@@ -31,6 +35,10 @@ void PN532_I2C::wakeup()
 
 int8_t PN532_I2C::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_t *body, uint8_t blen)
 {
+    if (!_ready) {
+        return PN532_INVALID_FRAME;
+    }
+
     command = header[0];
     _wire->beginTransmission(_address);
     
@@ -73,8 +81,10 @@ int8_t PN532_I2C::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_
     write(checksum);
     write(PN532_POSTAMBLE);
     
-    _wire->endTransmission();
-    
+    if (_wire->endTransmission() != 0) {
+        return PN532_INVALID_FRAME;
+    }
+
     DMSG('\n');
 
     return readAckFrame();
@@ -83,6 +93,8 @@ int8_t PN532_I2C::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_
 int16_t PN532_I2C::getResponseLength(uint8_t buf[], uint8_t len, uint16_t timeout) {
     const uint8_t PN532_NACK[] = {0, 0, 0xFF, 0xFF, 0, 0};
     uint16_t time = 0;
+    (void)buf;
+    (void)len;
 
     do {
         if (_wire->requestFrom(_address, 6)) {
@@ -106,28 +118,40 @@ int16_t PN532_I2C::getResponseLength(uint8_t buf[], uint8_t len, uint16_t timeou
         return PN532_INVALID_FRAME;
     }
     
-    uint8_t length = read();
+    const uint8_t length = read();
+    if (length < 2) {
+        return PN532_INVALID_FRAME;
+    }
 
     // request for last respond msg again
     _wire->beginTransmission(_address);
     for (uint16_t i = 0; i < sizeof(PN532_NACK); ++i) {
       write(PN532_NACK[i]);
     }
-    _wire->endTransmission();
+    if (_wire->endTransmission() != 0) {
+        return PN532_INVALID_FRAME;
+    }
 
     return length;
 }
 
 int16_t PN532_I2C::readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
 {
-    uint16_t time = 0;
-    uint8_t length;
+    if (!_ready) {
+        return PN532_INVALID_FRAME;
+    }
 
-    length = getResponseLength(buf, len, timeout);
+    uint16_t time = 0;
+    const int16_t responseLength = getResponseLength(buf, len, timeout);
+    if (responseLength < 2 || responseLength > 24 ||
+        responseLength - 2 > len) {
+        return responseLength < 0 ? responseLength : PN532_INVALID_FRAME;
+    }
+    const uint8_t expectedLength = static_cast<uint8_t>(responseLength);
 
     // [RDY] 00 00 FF LEN LCS (TFI PD0 ... PDn) DCS 00
     do {
-        if (_wire->requestFrom(_address, 6 + length + 2)) {
+        if (_wire->requestFrom(_address, 6 + expectedLength + 2)) {
             if (read() & 1) {  // check first byte --- status
                 break;         // PN532 is ready
             }
@@ -148,7 +172,10 @@ int16_t PN532_I2C::readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
         return PN532_INVALID_FRAME;
     }
     
-    length = read();
+    uint8_t length = read();
+    if (length != expectedLength) {
+        return PN532_INVALID_FRAME;
+    }
 
     if (0 != (uint8_t)(length + read())) {   // checksum of length
         return PN532_INVALID_FRAME;

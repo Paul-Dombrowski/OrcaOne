@@ -82,7 +82,7 @@ void setup() {
 }
 
 void loop() {
-  blinkUpdate();   // TEST: On-Board-LED
+  //blinkUpdate();   // TEST: On-Board-LED
 
   nfc.update();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
 
@@ -102,4 +102,6 @@ void loop() {
 
   // TODO: Eingaben aus dem Serial Monitor verarbeiten (nicht blockierend)
   // Console.update();
+
+  delay(1);  // Gibt dem Idle-Task Zeit und verhindert Watchdog-Ausloesungen.
 }

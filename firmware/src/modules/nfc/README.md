@@ -59,6 +59,10 @@ einen anderen Leser.
 - **PN532 fehlt:** `nfc.getFirmwareVersion()` liefert `0`. Dann einmal
   `[nfc] PN532 nicht gefunden - Modul inaktiv` ausgeben, `ok = false`, `update()`
   tut nichts, `handleCommand()` gibt `false` zurück.
+- Kann `Wire.begin()` den Bus nicht starten, meldet das Modul den I²C-Fehler
+  einmalig und bleibt inaktiv. Antwortet der PN532 nicht auf die I²C-Adresse,
+  wird der fehlgeschlagene Schreibversuch beendet, ohne wiederholt ACK-Leseversuche
+  auszuführen.
 - ⚠️ Die Beispiel-Sketche dieser Bibliothek machen an dieser Stelle `while (1);`.
   **Nicht übernehmen**, sonst hängt das ganze Gerät, sobald jemand ohne PN532
   testet.
@@ -89,6 +93,12 @@ einen anderen Leser.
 - `update()` fragt mit Intervall und begrenztem Timeout ab. Der PN532-Treiber
   wartet intern synchron auf I²C-Antworten; jeder Versuch ist daher zeitlich
   begrenzt, aber nicht vollständig asynchron.
+- Vor dem Scannen wird `setPassiveActivationRetries()` auf einen endlichen Wert
+  gesetzt. Der PN532 muss einen Suchbefehl beenden können, bevor `update()` den
+  nächsten sendet; der Host-Timeout ist dafür größer als ein einzelnes Retry.
+- Die PN532-Antwort auf `SAMConfig()` kann ohne Nutzdaten kommen. Der
+  Antwortparser akzeptiert deshalb einen gültigen Antwortframe mit einer
+  Frame-Länge von 2 Bytes (TFI + Antwortcode).
 - NDEF-Inhalte (optional): über `NfcAdapter` — `tagPresent()`, `read()` →
   `NfcTag`, `write(message)`.
 - Pins/Adresse ausschließlich aus [`../../config.h`](../../config.h) nehmen.
