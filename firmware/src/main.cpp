@@ -11,17 +11,16 @@
 //
 //  Fehlt ein Bauteil, laeuft trotzdem alles andere weiter (ARBEITSWEISE.md §6).
 //
-//  HINWEIS: Dies ist ein GERUEST. Die mit TODO markierten Zeilen werden
-//  aktiviert, sobald das jeweilige Modul existiert. Bis dahin laeuft das
-//  Programm, tut aber noch nichts Sichtbares.
+//  HINWEIS: Dies ist ein GERUEST. NFC ist als erster Grundtest direkt
+//  eingebunden; die TODO-markierten Bereiche folgen mit den weiteren Modulen.
 // ============================================================================
 #include <Arduino.h>
 #include "config.h"
+#include "modules/nfc/NfcModule.h"
 
-// --- Module einbinden (aktivieren, sobald sie gebaut sind) ---
+// --- Erstes implementiertes Modul ---
 // #include "modules/display/DisplayModule.h"
 // #include "modules/input/InputModule.h"
-// #include "modules/nfc/NfcModule.h"
 // #include "modules/ir/IrModule.h"
 // #include "modules/jammer/JammerModule.h"
 // #include "core/ModeManager.h"
@@ -33,7 +32,7 @@
 // --- Globale Objekte (ein Exemplar pro Modul) ---
 // DisplayModule display;
 // InputModule   input;
-// NfcModule     nfc;
+NfcModule nfc;
 // IrModule      ir;
 // JammerModule  jammer;
 // ModeManager   mode;          // kennt alle Module, fuehrt Automatik aus
@@ -66,7 +65,9 @@ void setup() {
 
   pinMode(PIN_LED_BUILTIN, OUTPUT);   // TEST: On-Board-LED
 
-  // TODO: jedes Modul initialisieren
+  nfc.begin();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
+
+  // TODO: uebrige Module initialisieren und danach auch NFC ueber die Liste starten.
   // for (Module* m : modules) m->begin();
 
   // TODO: Befehls-Verteiler kennt alle Module + ModeManager.
@@ -83,7 +84,9 @@ void setup() {
 void loop() {
   blinkUpdate();   // TEST: On-Board-LED
 
-  // TODO: jedem Modul Rechenzeit geben (alle update()s sind nicht-blockierend)
+  nfc.update();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
+
+  // TODO: uebrigen Modulen Rechenzeit geben und danach auch NFC ueber die Liste updaten.
   // for (Module* m : modules) m->update();
 
   // TODO: Automatik-Regeln auswerten (nur aktiv, wenn Modus == auto)

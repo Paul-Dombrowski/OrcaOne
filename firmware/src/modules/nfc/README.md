@@ -23,9 +23,16 @@ klassische **RFID-Tags** (MIFARE Classic/Ultralight, Hotelkarten) als auch **NFC
 ab. **Nicht** unterstützt: 125-kHz-Karten/Fobs (EM4100 u. Ä.) — dafür bräuchte es
 einen anderen Leser.
 
-## Was es können soll
+## Was es aktuell kann
 
-- Einen in die Nähe gehaltenen NFC/RFID-Tag **lesen** (UID + Dateninhalt).
+- Beim Start einmalig nach einem NFC/RFID-Tag suchen und dessen UID lesen.
+- Mit dem Befehl `read` einen weiteren Lesevorgang anfordern.
+- Die zuletzt gelesene UID im Status bereitstellen.
+- Die erste Umsetzung unterstützt UIDs bis 7 Bytes, passend zur Signatur des
+  vorhandenen PN532-Treibers.
+
+## Was es später können soll
+
 - Gelesene Daten zwischenspeichern und auf einen anderen (beschreibbaren) Tag
   **schreiben** → „klonen". *(Hinweis: Eine 1:1-Kopie inklusive der fest
   eingebrannten UID geht nur mit speziellen „magic"-Karten; normal lässt sich nur
@@ -37,14 +44,14 @@ einen anderen Leser.
 
 | action | params | Wirkung |
 |---|---|---|
-| `read` | – | nächsten Tag einlesen, UID + Daten merken |
+| `read` | – | einen weiteren Tag einlesen und die UID merken |
 | `write` | `{ "slot": <n> }` | gemerkte Daten auf aktuellen Tag schreiben |
 | `clone` | – | lesen und direkt zum Schreiben vormerken |
 
 ## Status (`statusJson`)
 
 ```json
-{ "ok": true, "ready": true, "lastUid": "04A1B2C3", "tagPresent": false, "stored": 1 }
+{ "ok": true, "ready": true, "lastUid": "04A1B2C3", "readPending": false }
 ```
 
 ## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
@@ -57,7 +64,11 @@ einen anderen Leser.
   testet.
 - Das OLED-Display teilt sich den I2C-Bus mit dem PN532. Fehlt eines der beiden,
   funktioniert das andere trotzdem.
-- **Testen ohne Display/Handy:** im Serial Monitor `nfc read`, danach `status`.
+- **Aktuell testen:** im Serial Monitor nach dem Start die ausgegebene
+  PN532-Meldung abwarten und einen Tag an den Leser halten. Bis Serial-Konsole
+  und CommandRouter eingebunden sind, startet das Modul beim Einschalten
+  selbstständig einen Lesevorgang. Danach wird `nfc read` zum erneuten Auslesen
+  verfügbar sein.
 
 ## Umsetzungshinweise (auch für KI)
 
@@ -69,16 +80,15 @@ einen anderen Leser.
   // optional fuer NDEF-Inhalte:
   #include <NfcAdapter.h>
 
-  PN532_I2C pn532_i2c(Wire);
+  PN532_I2C pn532_i2c(Wire, PIN_I2C_SDA, PIN_I2C_SCL, PN532_I2C_ADDR);
   PN532     nfc(pn532_i2c);          // oder: NfcAdapter nfc(pn532_i2c);
   ```
-- In `begin()`: `Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL)`, dann `nfc.begin()`,
-  `nfc.getFirmwareVersion()` prüfen (Fehlerfall siehe „Ohne Hardware“),
-  danach `nfc.SAMConfig()`.
-- In `update()`: **nicht blockierend** nach einem Tag suchen.
-  `readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, timeout)` mit
-  **kurzem** `timeout` (z. B. 50 ms) aufrufen; pro Durchlauf nur ein kurzer
-  Versuch, dann zurückkehren.
+- `nfc.begin()` initialisiert den I²C-Bus und die Adresse über die zentralen
+  Werte aus `config.h`.
+  Danach Firmware-Version prüfen und `SAMConfig()` aufrufen.
+- `update()` fragt mit Intervall und begrenztem Timeout ab. Der PN532-Treiber
+  wartet intern synchron auf I²C-Antworten; jeder Versuch ist daher zeitlich
+  begrenzt, aber nicht vollständig asynchron.
 - NDEF-Inhalte (optional): über `NfcAdapter` — `tagPresent()`, `read()` →
   `NfcTag`, `write(message)`.
 - Pins/Adresse ausschließlich aus [`../../config.h`](../../config.h) nehmen.
@@ -88,13 +98,14 @@ einen anderen Leser.
 ## Sicherheit: NFC-Tags sind untrusted Eingaben
 
 Ein Tag kann **beliebige Bytes** enthalten — jeder kann einen Tag frei
-beschreiben. Die eingebundenen Bibliotheken haben in der Upstream-Fassung
-bekannte Speicherfehler beim Verarbeiten solcher Daten (von der automatischen
+beschreiben. Die eingebundenen Bibliotheken haben in der Upstream-Fassung bekannte
+Speicherfehler beim Verarbeiten solcher Daten (von der automatischen
 Sicherheitsprüfung gemeldet, 2026-10-24):
 
 - **NDEF-Parsing** (`components/NDEF/NdefMessage.cpp`): Längenfelder aus dem Tag
-  werden ungeprüft als Index/Größe benutzt → Out-of-bounds-Read / Heap-Korruption
-  bei manipuliertem/defektem Tag. Betrifft `NfcAdapter::read()`.
+  wurden ungeprüft als Index/Größe benutzt. Der Parser ist jetzt lokal gepatcht:
+  Feldlängen werden gegen die verbleibende Nachricht geprüft, bevor Daten kopiert
+  werden. Beschädigte oder abgeschnittene Records werden verworfen.
 - **Mifare-Classic-Schreiben** (`components/NDEF/MifareClassic.cpp`): Puffergröße
   aus `messageLength` als VLA auf dem Stack → Stack-Overflow bei großer Länge.
 - **Tag-Emulation** (`components/PN532/emulatetag.cpp`): Buffer-Overflow bei
@@ -116,6 +127,6 @@ die Grundfunktion (lesen/schreiben am Gerät) bauen, diese Erweiterung später.
 
 ## To-do
 
-- [ ] `NfcModule.h` / `.cpp` nach dem Muster aus [`../README.md`](../README.md) anlegen.
-- [ ] `read` umsetzen und UID im Serial-Monitor ausgeben.
+- [x] `NfcModule.h` / `.cpp` nach dem Muster aus [`../README.md`](../README.md) anlegen.
+- [x] `read` umsetzen und UID im Serial-Monitor ausgeben.
 - [ ] `write`/`clone` ergänzen.

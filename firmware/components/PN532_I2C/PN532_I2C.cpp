@@ -6,18 +6,22 @@
 #include "PN532_debug.h"
 #include "Arduino.h"
 
-#define PN532_I2C_ADDRESS       (0x48 >> 1)
-
-
-PN532_I2C::PN532_I2C(TwoWire &wire)
+PN532_I2C::PN532_I2C(TwoWire &wire, int sda, int scl, uint8_t address)
 {
     _wire = &wire;
+    _sda = sda;
+    _scl = scl;
+    _address = address;
     command = 0;
 }
 
 void PN532_I2C::begin()
 {
-    _wire->begin();
+    if (_sda >= 0 && _scl >= 0) {
+        _wire->begin(_sda, _scl);
+    } else {
+        _wire->begin();
+    }
 }
 
 void PN532_I2C::wakeup()
@@ -28,7 +32,7 @@ void PN532_I2C::wakeup()
 int8_t PN532_I2C::writeCommand(const uint8_t *header, uint8_t hlen, const uint8_t *body, uint8_t blen)
 {
     command = header[0];
-    _wire->beginTransmission(PN532_I2C_ADDRESS);
+    _wire->beginTransmission(_address);
     
     write(PN532_PREAMBLE);
     write(PN532_STARTCODE1);
@@ -81,7 +85,7 @@ int16_t PN532_I2C::getResponseLength(uint8_t buf[], uint8_t len, uint16_t timeou
     uint16_t time = 0;
 
     do {
-        if (_wire->requestFrom(PN532_I2C_ADDRESS, 6)) {
+        if (_wire->requestFrom(_address, 6)) {
             if (read() & 1) {  // check first byte --- status
                 break;         // PN532 is ready
             }
@@ -105,7 +109,7 @@ int16_t PN532_I2C::getResponseLength(uint8_t buf[], uint8_t len, uint16_t timeou
     uint8_t length = read();
 
     // request for last respond msg again
-    _wire->beginTransmission(PN532_I2C_ADDRESS);
+    _wire->beginTransmission(_address);
     for (uint16_t i = 0; i < sizeof(PN532_NACK); ++i) {
       write(PN532_NACK[i]);
     }
@@ -123,7 +127,7 @@ int16_t PN532_I2C::readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
 
     // [RDY] 00 00 FF LEN LCS (TFI PD0 ... PDn) DCS 00
     do {
-        if (_wire->requestFrom(PN532_I2C_ADDRESS, 6 + length + 2)) {
+        if (_wire->requestFrom(_address, 6 + length + 2)) {
             if (read() & 1) {  // check first byte --- status
                 break;         // PN532 is ready
             }
@@ -193,7 +197,7 @@ int8_t PN532_I2C::readAckFrame()
     
     uint16_t time = 0;
     do {
-        if (_wire->requestFrom(PN532_I2C_ADDRESS,  sizeof(PN532_ACK) + 1)) {
+        if (_wire->requestFrom(_address, sizeof(PN532_ACK) + 1)) {
             if (read() & 1) {  // check first byte --- status
                 break;         // PN532 is ready
             }

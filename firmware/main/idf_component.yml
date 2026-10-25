@@ -13,3 +13,6 @@ dependencies:
   # Arduino-Core fuer ESP32 als Komponente -> Arduino.h, setup()/loop(),
   # Wire/SPI usw. stehen zur Verfuegung.
   espressif/arduino-esp32: "~3.3.0"
+
+  # JSON-Typen des Modul-Vertrags (firmware/src/core/Module.h).
+  bblanchon/arduinojson: "~7.4.3"

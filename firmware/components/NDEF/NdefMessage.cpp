@@ -15,61 +15,100 @@ NdefMessage::NdefMessage(const byte * data, const int numBytes)
 
     _recordCount = 0;
 
+    if (data == NULL || numBytes <= 0)
+    {
+        return;
+    }
+
     int index = 0;
 
-    while (index <= numBytes)
+    while (index < numBytes && _recordCount < MAX_NDEF_RECORDS)
     {
+        if (numBytes - index < 2)
+        {
+            break;
+        }
 
         // decode tnf - first byte is tnf with bit flags
         // see the NFDEF spec for more info
         byte tnf_byte = data[index];
-        bool mb = (tnf_byte & 0x80) != 0;
         bool me = (tnf_byte & 0x40) != 0;
-        bool cf = (tnf_byte & 0x20) != 0;
         bool sr = (tnf_byte & 0x10) != 0;
         bool il = (tnf_byte & 0x8) != 0;
         byte tnf = (tnf_byte & 0x7);
 
-        NdefRecord record = NdefRecord();
-        record.setTnf(tnf);
-
         index++;
-        int typeLength = data[index];
+        const uint8_t typeLength = data[index++];
 
-        int payloadLength = 0;
+        uint32_t payloadLength = 0;
         if (sr)
         {
-            index++;
-            payloadLength = data[index];
+            if (index >= numBytes)
+            {
+                break;
+            }
+            payloadLength = data[index++];
         }
         else
         {
-            payloadLength =
-		((0xFF & data[++index]) << 24)
-		| ((0xFF & data[++index]) << 16)
-		| ((0xFF & data[++index]) << 8)
-		| (0xFF & data[++index]);
+            if (numBytes - index < 4)
+            {
+                break;
+            }
+            payloadLength = static_cast<uint32_t>(data[index++]) << 24;
+            payloadLength |= static_cast<uint32_t>(data[index++]) << 16;
+            payloadLength |= static_cast<uint32_t>(data[index++]) << 8;
+            payloadLength |= data[index++];
         }
 
-        int idLength = 0;
+        uint8_t idLength = 0;
         if (il)
         {
-            index++;
-            idLength = data[index];
+            if (index >= numBytes)
+            {
+                break;
+            }
+            idLength = data[index++];
         }
 
-        index++;
-        record.setType(&data[index], typeLength);
+        int remaining = numBytes - index;
+        if (typeLength > remaining)
+        {
+            break;
+        }
+        const byte *type = &data[index];
         index += typeLength;
 
-        if (il)
+        remaining = numBytes - index;
+        if (idLength > remaining)
         {
-            record.setId(&data[index], idLength);
-            index += idLength;
+            break;
         }
+        const byte *id = &data[index];
+        index += idLength;
 
-        record.setPayload(&data[index], payloadLength);
-        index += payloadLength;
+        remaining = numBytes - index;
+        if (payloadLength > static_cast<uint32_t>(remaining))
+        {
+            break;
+        }
+        const byte *payload = &data[index];
+        index += static_cast<int>(payloadLength);
+
+        NdefRecord record;
+        record.setTnf(tnf);
+        if (typeLength > 0)
+        {
+            record.setType(type, typeLength);
+        }
+        if (idLength > 0)
+        {
+            record.setId(id, idLength);
+        }
+        if (payloadLength > 0)
+        {
+            record.setPayload(payload, static_cast<int>(payloadLength));
+        }
 
         addRecord(record);
 

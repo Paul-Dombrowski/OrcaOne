@@ -390,7 +390,9 @@ bool PN532::readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uid
     }
 
     // read data packet
-    if (HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer), timeout) < 0) {
+    const int16_t responseLength =
+        HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer), timeout);
+    if (responseLength < 6) {
         return 0x0;
     }
 
@@ -410,6 +412,12 @@ bool PN532::readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uid
     if (pn532_packetbuffer[0] != 1)
         return 0;
 
+    const uint8_t receivedUidLength = pn532_packetbuffer[5];
+    if (receivedUidLength == 0 || receivedUidLength > 7 ||
+        receivedUidLength > responseLength - 6) {
+        return 0;
+    }
+
     uint16_t sens_res = pn532_packetbuffer[2];
     sens_res <<= 8;
     sens_res |= pn532_packetbuffer[3];
@@ -419,9 +427,9 @@ bool PN532::readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uid
     DMSG("\n");
 
     /* Card appears to be Mifare Classic */
-    *uidLength = pn532_packetbuffer[5];
+    *uidLength = receivedUidLength;
 
-    for (uint8_t i = 0; i < pn532_packetbuffer[5]; i++) {
+    for (uint8_t i = 0; i < receivedUidLength; i++) {
         uid[i] = pn532_packetbuffer[6 + i];
     }
 
@@ -653,7 +661,9 @@ uint8_t PN532::mifareclassic_WriteNDEFURI (uint8_t sectorNumber, uint8_t uriIden
     // in NDEF records
 
     // Setup the sector buffer (w/pre-formatted TLV wrapper and NDEF message)
-    uint8_t sectorbuffer1[16] = {0x00, 0x00, 0x03, len + 5, 0xD1, 0x01, len + 1, 0x55, uriIdentifier, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t sectorbuffer1[16] = {0x00, 0x00, 0x03, static_cast<uint8_t>(len + 5),
+                                 0xD1, 0x01, static_cast<uint8_t>(len + 1), 0x55,
+                                 uriIdentifier, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t sectorbuffer2[16] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t sectorbuffer3[16] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t sectorbuffer4[16] = {0xD3, 0xF7, 0xD3, 0xF7, 0xD3, 0xF7, 0x7F, 0x07, 0x88, 0x40, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};

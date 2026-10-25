@@ -10,7 +10,7 @@
 
 class PN532_I2C : public PN532Interface {
 public:
-    PN532_I2C(TwoWire &wire);
+    PN532_I2C(TwoWire &wire, int sda = -1, int scl = -1, uint8_t address = 0x24);
     
     void begin();
     void wakeup();
@@ -19,6 +19,9 @@ public:
     
 private:
     TwoWire* _wire;
+    int _sda;
+    int _scl;
+    uint8_t _address;
     uint8_t command;
     
     int8_t readAckFrame();

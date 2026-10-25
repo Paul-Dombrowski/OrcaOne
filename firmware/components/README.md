@@ -57,12 +57,13 @@ Minimale `CMakeLists.txt` für eine Arduino-Bibliothek:
 idf_component_register(
   SRCS "src/DieLib.cpp"          # alle .cpp der Bibliothek auflisten
   INCLUDE_DIRS "src"             # wo die .h liegen
-  REQUIRES arduino               # braucht Arduino.h, Wire, SPI ...
+  REQUIRES espressif__arduino-esp32  # Arduino.h, Wire und SPI der Registry-Komponente
 )
 ```
 
-- `REQUIRES arduino` ist bei fast allen diesen Bibliotheken nötig (sie benutzen
-  `Arduino.h`, `Wire`, `SPI`). Nutzt die Lib weitere Komponenten, diese ergänzen.
+- `REQUIRES espressif__arduino-esp32` ist bei fast allen diesen Bibliotheken
+  nötig (sie benutzen `Arduino.h`, `Wire`, `SPI`). Nutzt die Lib weitere
+  Komponenten, diese ergänzen.
 - Einbinden im Code wie gewohnt: `#include <DieLib.h>`.
 
 ### Pflichtinhalt `HERKUNFT.md`
@@ -103,6 +104,7 @@ Beim Hinzufügen hier eine Zeile ergänzen.
 > die Download-Quelle eintragen, die bei dir verwendet wurde.
 
 > ⚠️ **Bekannte Schwachstellen** in PN532/NDEF (Upstream, untrusted Tag-Daten):
-> OOB-Read beim NDEF-Parsen, VLA-Stack-Overflow beim Mifare-Schreiben,
-> Buffer-Overflow in `emulatetag` (ungenutzt). Details und Gegenmaßnahmen:
+> Der NDEF-Parser wurde lokal mit Längenprüfungen gepatcht; VLA-Stack-Overflow
+> beim Mifare-Schreiben und Buffer-Overflow in `emulatetag` (ungenutzt) sind
+> weiterhin offen. Details und Gegenmaßnahmen:
 > [`../src/modules/nfc/README.md`](../src/modules/nfc/README.md) → „Sicherheit".
