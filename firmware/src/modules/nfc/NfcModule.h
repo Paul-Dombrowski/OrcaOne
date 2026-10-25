@@ -21,6 +21,7 @@ private:
   PN532 _reader;
   bool _ok = false;
   bool _readPending = false;
+  bool _tagPresent = false;
   bool _hasPolled = false;
   unsigned long _lastPollMs = 0;
   String _lastUid;

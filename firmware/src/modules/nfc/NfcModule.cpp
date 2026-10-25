@@ -33,6 +33,7 @@ void NfcModule::begin() {
 
   _ok = true;
   _readPending = true;
+  _tagPresent = false;
   Serial.print("[nfc] PN532 Firmware-Version: ");
   Serial.println((version >> 16) & 0xFF, DEC);
   Serial.println("[nfc] Bereit - NFC-Tag wird gesucht");
@@ -51,10 +52,10 @@ void NfcModule::update() {
   uint8_t uidLength = 0;
   if (!_reader.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength,
                                    NFC_READ_TIMEOUT_MS)) {
+    _tagPresent = false;
     return;
   }
 
-  _readPending = false;
   if (uidLength == 0 || uidLength > MaxUidLength) {
     Serial.println("[nfc] Ungueltige UID-Laenge empfangen");
     return;
@@ -68,7 +69,11 @@ void NfcModule::update() {
   }
   formattedUid[uidLength * 2] = '\0';
 
+  const String currentUid(formattedUid);
+  if (_tagPresent && currentUid == _lastUid) return;
+
   _lastUid = formattedUid;
+  _tagPresent = true;
 
   Serial.print("[nfc] Card UID: ");
   for (uint8_t i = 0; i < uidLength; ++i) {
@@ -84,6 +89,7 @@ void NfcModule::statusJson(JsonObject obj) {
   obj["ready"] = _ok;
   obj["lastUid"] = _lastUid;
   obj["readPending"] = _readPending;
+  obj["tagPresent"] = _tagPresent;
 }
 
 bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
@@ -91,6 +97,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
   if (!_ok || action != "read") return false;
 
   _readPending = true;
+  _tagPresent = false;
   _hasPolled = false;
   return true;
 }
