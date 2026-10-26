@@ -143,7 +143,9 @@ void NfcModule::processCard() {
     printHex(item.aid, item.len);
     Serial.print(")... ");
 
-    if (!selectAid(item.aid, item.len)) {
+    uint8_t fci[MaxBufferLength];
+    uint8_t fciLen = 0;
+    if (!selectAid(item.aid, item.len, fci, &fciLen)) {
       Serial.println("abgelehnt.");
       continue;
     }
@@ -162,7 +164,7 @@ void NfcModule::processCard() {
     // 3. GET PROCESSING OPTIONS (GPO) senden, um AFL zu ermitteln
     uint8_t afl[64] = {0};
     uint8_t aflLen = 0;
-    bool gpoSuccess = tryGetProcessingOptions(afl, aflLen);
+    bool gpoSuccess = tryGetProcessingOptions(fci, fciLen, afl, aflLen);
 
     // 4. Records auslesen
     if (readCardRecords(gpoSuccess ? afl : nullptr, aflLen)) {
@@ -218,7 +220,9 @@ bool NfcModule::selectPpse(std::vector<EmvAid>& aidList) {
   return !aidList.empty();
 }
 
-bool NfcModule::selectAid(const uint8_t* aid, uint8_t aidLen) {
+bool NfcModule::selectAid(const uint8_t* aid, uint8_t aidLen,
+                          uint8_t* outFci, uint8_t* outFciLen) {
+  if (outFciLen) *outFciLen = 0;
   if (aidLen == 0 || aidLen > 16) return false;
 
   uint8_t cmd[32];
@@ -256,42 +260,134 @@ bool NfcModule::selectAid(const uint8_t* aid, uint8_t aidLen) {
   Serial.print("  Rohantwort: ");
   printHex(response, responseLength);
   Serial.println();
-  return (sw1 == 0x90 && sw2 == 0x00);
+
+  const bool ok = (sw1 == 0x90 && sw2 == 0x00);
+  if (ok && outFci && outFciLen) {
+    // FCI = Antwort ohne die beiden Statusbytes.
+    uint8_t fciLen = responseLength - 2;
+    memcpy(outFci, response, fciLen);
+    *outFciLen = fciLen;
+  }
+  return ok;
 }
 
-bool NfcModule::tryGetProcessingOptions(uint8_t* outAfl, uint8_t& outAflLen) {
+uint8_t NfcModule::buildPdolData(const uint8_t* pdol, uint8_t pdolLen, uint8_t* out) {
+  uint8_t outLen = 0;
+  int i = 0;
+  while (i < pdolLen) {
+    // Tag der PDOL-Liste lesen (1 oder 2 Byte)
+    uint32_t tag = pdol[i];
+    int tSize = 1;
+    if ((pdol[i] & 0x1F) == 0x1F) {
+      if (i + 1 >= pdolLen) break;
+      tag = (static_cast<uint32_t>(pdol[i]) << 8) | pdol[i + 1];
+      tSize = 2;
+    }
+    if (i + tSize >= pdolLen) break;
+    uint8_t len = pdol[i + tSize];
+    i += tSize + 1;
+
+    // Standard-/Dummy-Terminalwerte in GENAU der verlangten Laenge. Fuer reines
+    // Auslesen reicht das; die Karte prueft primaer die Laengen (sonst 0x6700).
+    uint8_t val[32] = {0};
+    switch (tag) {
+      case 0x9F66: if (len >= 1) val[0] = 0x36; break;                              // TTQ (online-faehig)
+      case 0x9F02: if (len >= 1) val[len - 1] = 0x01; break;                        // Betrag (BCD) 0.01
+      case 0x9F1A: if (len >= 2) { val[len - 2] = 0x02; val[len - 1] = 0x76; } break; // Land DE 0276
+      case 0x5F2A: if (len >= 2) { val[len - 2] = 0x09; val[len - 1] = 0x78; } break; // Waehrung EUR 0978
+      case 0x9A:   if (len >= 3) { val[0] = 0x25; val[1] = 0x01; val[2] = 0x01; } break; // Datum JJMMTT
+      case 0x9C:   break;                                                            // Transaktionstyp 00
+      case 0x9F37: for (uint8_t k = 0; k < len && k < sizeof(val); ++k) val[k] = 0x11 * (k + 1); break; // UN
+      case 0x9F35: if (len >= 1) val[0] = 0x22; break;                              // Terminal-Typ
+      default:     break;                                                            // unbekannt -> Nullen
+    }
+    for (uint8_t k = 0; k < len; ++k) {
+      out[outLen++] = (k < sizeof(val)) ? val[k] : 0x00;
+    }
+  }
+  return outLen;
+}
+
+bool NfcModule::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
+                                        uint8_t* outAfl, uint8_t& outAflLen) {
   outAflLen = 0;
 
-  // Standard GPO mit leerem PDOL (Format 83 00)
-  uint8_t gpoEmpty[] = { 0x80, 0xA8, 0x00, 0x00, 0x02, 0x83, 0x00, 0x00 };
+  // GPO-Kommando bauen. Verlangt die AID ein PDOL (Tag 9F38 im FCI), werden die
+  // Werte in den geforderten Laengen geliefert; sonst leeres PDOL (83 00).
+  uint8_t cmd[128];
+  uint8_t cmdLen = 0;
+  cmd[cmdLen++] = 0x80; cmd[cmdLen++] = 0xA8; cmd[cmdLen++] = 0x00; cmd[cmdLen++] = 0x00;
+
+  uint8_t pdolData[64];
+  uint8_t pdolDataLen = 0;
+  int pdolIdx = (fci && fciLen) ? findTag(fci, fciLen, 0x9F38) : -1;
+  if (pdolIdx != -1) {
+    uint8_t pdolLen = fci[pdolIdx + 2];   // 9F38 = 2-Byte-Tag -> Laengenbyte bei +2
+    pdolDataLen = buildPdolData(&fci[pdolIdx + 3], pdolLen, pdolData);
+    Serial.print("[EMV] PDOL (Tag 9F38) gefunden, Laenge ");
+    Serial.print(pdolLen);
+    Serial.print(" -> GPO-Daten ");
+    Serial.print(pdolDataLen);
+    Serial.println(" Byte.");
+  } else {
+    Serial.println("[EMV] Kein PDOL im FCI -> leeres GPO (83 00).");
+  }
+
+  cmd[cmdLen++] = static_cast<uint8_t>(2 + pdolDataLen);  // Lc
+  cmd[cmdLen++] = 0x83;
+  cmd[cmdLen++] = pdolDataLen;
+  for (uint8_t k = 0; k < pdolDataLen; ++k) cmd[cmdLen++] = pdolData[k];
+  cmd[cmdLen++] = 0x00;  // Le
+
   uint8_t response[MaxBufferLength];
   uint8_t responseLength = sizeof(response);
 
   Serial.println("[EMV] Sende GET PROCESSING OPTIONS (GPO)...");
-  bool success = _reader.inDataExchange(gpoEmpty, sizeof(gpoEmpty), response, &responseLength);
+  bool success = _reader.inDataExchange(cmd, cmdLen, response, &responseLength);
 
   if (!success || responseLength < 2) {
-    Serial.println("[EMV] GPO Anfrage fehlgeschlagen (evtl. PDOL erforderlich).");
+    Serial.println("[EMV] GPO Anfrage fehlgeschlagen.");
     return false;
   }
 
   uint8_t sw1 = response[responseLength - 2];
   uint8_t sw2 = response[responseLength - 1];
 
+  // [DEBUG] temporaer: GPO-Rohantwort.
+  Serial.print("[DEBUG] GPO Rohantwort (");
+  Serial.print(responseLength);
+  Serial.print(" Byte): ");
+  printHex(response, responseLength);
+  Serial.println();
+
   if (sw1 != 0x90 || sw2 != 0x00) {
     Serial.print("[EMV] GPO Status: 0x");
+    if (sw1 < 0x10) Serial.print('0');
     Serial.print(sw1, HEX);
     Serial.print(" 0x");
+    if (sw2 < 0x10) Serial.print('0');
     Serial.println(sw2, HEX);
     return false;
   }
 
-  // Suche nach Tag 0x94 (Application File Locator - AFL)
-  int aflIdx = findTag(response, responseLength - 2, 0x94);
+  const int dataLen = responseLength - 2;
+
+  // AFL-Suche, robust fuer beide GPO-Antwortformate:
+  //  Format 2: Template 0x77 { 82 AIP, 94 AFL, ... } -> AFL in Tag 0x94
+  //  Format 1: Template 0x80 { AIP(2) + AFL }        -> AFL direkt hinter AIP
+  const uint8_t* body = response;
+  int bodyLen = dataLen;
+  if (dataLen >= 2 && response[0] == 0x77) {
+    uint8_t tlen = response[1];           // GPO-Antworten sind kurz (<128)
+    body = &response[2];
+    bodyLen = (tlen <= dataLen - 2) ? tlen : (dataLen - 2);
+  }
+
+  int aflIdx = findTag(body, bodyLen, 0x94);
   if (aflIdx != -1) {
-    uint8_t len = response[aflIdx + 1];
-    if (len <= 64) {
-      memcpy(outAfl, &response[aflIdx + 2], len);
+    uint8_t len = body[aflIdx + 1];
+    if (len <= 64 && aflIdx + 2 + len <= bodyLen) {
+      memcpy(outAfl, &body[aflIdx + 2], len);
       outAflLen = len;
       Serial.print("[EMV] AFL (Tag 0x94) gefunden. Laenge: ");
       Serial.println(outAflLen);
@@ -299,13 +395,13 @@ bool NfcModule::tryGetProcessingOptions(uint8_t* outAfl, uint8_t& outAflLen) {
     }
   }
 
-  // Format 1 Response: Tag 0x80 gefolgt von AIP (2 Bytes) und AFL
-  int format1Idx = findTag(response, responseLength - 2, 0x80);
+  // Format 1: Tag 0x80 gefolgt von AIP (2 Byte) und AFL
+  int format1Idx = findTag(response, dataLen, 0x80);
   if (format1Idx != -1) {
     uint8_t len = response[format1Idx + 1];
     if (len > 2) {
       uint8_t aflBytes = len - 2;
-      if (aflBytes <= 64) {
+      if (aflBytes <= 64 && format1Idx + 4 + aflBytes <= dataLen) {
         memcpy(outAfl, &response[format1Idx + 4], aflBytes);
         outAflLen = aflBytes;
         Serial.print("[EMV] AFL in Format 1 Response gefunden. Laenge: ");
@@ -315,6 +411,7 @@ bool NfcModule::tryGetProcessingOptions(uint8_t* outAfl, uint8_t& outAflLen) {
     }
   }
 
+  Serial.println("[EMV] GPO ok, aber kein AFL gefunden.");
   return false;
 }
 
@@ -539,23 +636,47 @@ void NfcModule::extractAllAids(const uint8_t* data, int dataLen, std::vector<Emv
 
 int NfcModule::findTag(const uint8_t* data, int dataLen, uint32_t tag) {
   int i = 0;
-  while (i < dataLen - 2) {
-    uint32_t currentTag = data[i];
-    int tagLenSize = 1;
+  while (i < dataLen) {
+    const int tagStart = i;
 
-    // 2-Byte-Tags (z.B. 0x5F24)
-    if ((data[i] & 0x1F) == 0x1F) {
+    // --- Tag lesen (1 oder mehr Bytes) ---
+    uint32_t currentTag = data[i];
+    int tSize = 1;
+    if ((data[i] & 0x1F) == 0x1F) {           // mehrbyte-Tag (z. B. 0x5F24, 0x9F38)
+      if (i + 1 >= dataLen) break;
       currentTag = (static_cast<uint32_t>(data[i]) << 8) | data[i + 1];
-      tagLenSize = 2;
+      tSize = 2;
     }
+    if (i + tSize >= dataLen) break;
+
+    // --- Laenge lesen (Kurz- oder Langform, z. B. 0x81 LL) ---
+    const int lenPos = i + tSize;
+    int len = data[lenPos];
+    int lenSize = 1;
+    if (len & 0x80) {
+      const int n = len & 0x7F;
+      len = 0;
+      for (int k = 0; k < n && (lenPos + 1 + k) < dataLen; ++k) {
+        len = (len << 8) | data[lenPos + 1 + k];
+      }
+      lenSize = 1 + n;
+    }
+    const int valPos = lenPos + lenSize;
+    if (valPos > dataLen) break;
 
     if (currentTag == tag) {
-      return i;
+      return tagStart;
     }
 
-    if (i + tagLenSize >= dataLen) break;
-    int len = data[i + tagLenSize];
-    i += tagLenSize + 1 + len;
+    // In konstruierte Templates absteigen (Bit 6 des ersten Tag-Bytes gesetzt:
+    // 0x6F, 0xA5, 0x70, 0x77, 0x61, ...). EMV ist stark verschachtelt.
+    if (data[tagStart] & 0x20) {
+      const int subLen = (valPos + len <= dataLen) ? len : (dataLen - valPos);
+      const int sub = findTag(&data[valPos], subLen, tag);
+      if (sub != -1) return valPos + sub;
+    }
+
+    i = valPos + len;
   }
   return -1;
 }

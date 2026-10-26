@@ -50,10 +50,21 @@ private:
 
   void processCard();
   bool selectPpse(std::vector<EmvAid>& aidList);
-  bool selectAid(const uint8_t* aid, uint8_t aidLen);
-  bool tryGetProcessingOptions(uint8_t* outAfl, uint8_t& outAflLen);
+  // Selektiert eine AID. Bei Erfolg wird das FCI (fuer PDOL-Auswertung)
+  // in outFci/outFciLen zurueckgegeben, sofern nicht nullptr.
+  bool selectAid(const uint8_t* aid, uint8_t aidLen,
+                 uint8_t* outFci = nullptr, uint8_t* outFciLen = nullptr);
+  // GPO. Das FCI der zuvor selektierten AID wird uebergeben, damit ein evtl.
+  // gefordertes PDOL (Tag 9F38) korrekt gefuellt werden kann.
+  bool tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
+                               uint8_t* outAfl, uint8_t& outAflLen);
   bool readCardRecords(const uint8_t* afl, uint8_t aflLen);
   bool parseRecordData(const uint8_t* data, uint8_t dataLen);
+
+  // Baut aus der PDOL-Tagliste (Tag+Laenge) die GPO-Datenwerte. Liefert die
+  // Gesamtlaenge der geschriebenen Werte. Terminalwerte sind Standard/Dummy;
+  // die Karte prueft primaer die Laengen.
+  static uint8_t buildPdolData(const uint8_t* pdol, uint8_t pdolLen, uint8_t* out);
 
   // TLV Parser
   static int findTag(const uint8_t* data, int dataLen, uint32_t tag);
