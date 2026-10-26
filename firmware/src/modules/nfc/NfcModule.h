@@ -62,12 +62,15 @@ private:
   bool parseRecordData(const uint8_t* data, uint8_t dataLen);
 
   // Baut aus der PDOL-Tagliste (Tag+Laenge) die GPO-Datenwerte. Liefert die
-  // Gesamtlaenge der geschriebenen Werte. Terminalwerte sind Standard/Dummy;
-  // die Karte prueft primaer die Laengen.
-  static uint8_t buildPdolData(const uint8_t* pdol, uint8_t pdolLen, uint8_t* out);
+  // Gesamtlaenge der geschriebenen Werte, begrenzt durch outCap (Kartendaten
+  // sind nicht vertrauenswuerdig). Terminalwerte sind Standard/Dummy; die
+  // Karte prueft primaer die Laengen.
+  static uint8_t buildPdolData(const uint8_t* pdol, uint8_t pdolLen,
+                               uint8_t* out, size_t outCap);
 
-  // TLV Parser
-  static int findTag(const uint8_t* data, int dataLen, uint32_t tag);
+  // TLV Parser. depth begrenzt die Rekursion in verschachtelte Templates
+  // (Schutz gegen fehlerhafte/boesartige Kartendaten).
+  static int findTag(const uint8_t* data, int dataLen, uint32_t tag, int depth = 0);
   static void extractAllAids(const uint8_t* data, int dataLen, std::vector<EmvAid>& aidList);
   static void parseTrack2(const uint8_t* track2Data, uint8_t track2Len, String& outPan, String& outExp);
   static void printHex(const uint8_t* data, uint8_t length);

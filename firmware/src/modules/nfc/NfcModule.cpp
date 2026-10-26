@@ -271,7 +271,8 @@ bool NfcModule::selectAid(const uint8_t* aid, uint8_t aidLen,
   return ok;
 }
 
-uint8_t NfcModule::buildPdolData(const uint8_t* pdol, uint8_t pdolLen, uint8_t* out) {
+uint8_t NfcModule::buildPdolData(const uint8_t* pdol, uint8_t pdolLen,
+                                 uint8_t* out, size_t outCap) {
   uint8_t outLen = 0;
   int i = 0;
   while (i < pdolLen) {
@@ -301,6 +302,9 @@ uint8_t NfcModule::buildPdolData(const uint8_t* pdol, uint8_t pdolLen, uint8_t* 
       case 0x9F35: if (len >= 1) val[0] = 0x22; break;                              // Terminal-Typ
       default:     break;                                                            // unbekannt -> Nullen
     }
+    // Kapazitaetsgrenze: Kartendaten sind nicht vertrauenswuerdig, niemals
+    // ueber den Ausgabepuffer hinausschreiben.
+    if (static_cast<size_t>(outLen) + len > outCap) break;
     for (uint8_t k = 0; k < len; ++k) {
       out[outLen++] = (k < sizeof(val)) ? val[k] : 0x00;
     }
@@ -321,9 +325,13 @@ bool NfcModule::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
   uint8_t pdolData[64];
   uint8_t pdolDataLen = 0;
   int pdolIdx = (fci && fciLen) ? findTag(fci, fciLen, 0x9F38) : -1;
-  if (pdolIdx != -1) {
+  if (pdolIdx != -1 && pdolIdx + 2 < fciLen) {
     uint8_t pdolLen = fci[pdolIdx + 2];   // 9F38 = 2-Byte-Tag -> Laengenbyte bei +2
-    pdolDataLen = buildPdolData(&fci[pdolIdx + 3], pdolLen, pdolData);
+    // pdolLen stammt von der Karte: auf die tatsaechlich vorhandenen Bytes klemmen.
+    int avail = fciLen - (pdolIdx + 3);
+    if (avail < 0) avail = 0;
+    if (pdolLen > avail) pdolLen = static_cast<uint8_t>(avail);
+    pdolDataLen = buildPdolData(&fci[pdolIdx + 3], pdolLen, pdolData, sizeof(pdolData));
     Serial.print("[EMV] PDOL (Tag 9F38) gefunden, Laenge ");
     Serial.print(pdolLen);
     Serial.print(" -> GPO-Daten ");
@@ -634,12 +642,14 @@ void NfcModule::extractAllAids(const uint8_t* data, int dataLen, std::vector<Emv
   }
 }
 
-int NfcModule::findTag(const uint8_t* data, int dataLen, uint32_t tag) {
+int NfcModule::findTag(const uint8_t* data, int dataLen, uint32_t tag, int depth) {
+  if (depth > 8 || dataLen <= 0) return -1;   // Rekursionsschutz (boesartige Karte)
+
   int i = 0;
   while (i < dataLen) {
     const int tagStart = i;
 
-    // --- Tag lesen (1 oder mehr Bytes) ---
+    // --- Tag lesen (1 oder 2 Bytes) ---
     uint32_t currentTag = data[i];
     int tSize = 1;
     if ((data[i] & 0x1F) == 0x1F) {           // mehrbyte-Tag (z. B. 0x5F24, 0x9F38)
@@ -649,20 +659,22 @@ int NfcModule::findTag(const uint8_t* data, int dataLen, uint32_t tag) {
     }
     if (i + tSize >= dataLen) break;
 
-    // --- Laenge lesen (Kurz- oder Langform, z. B. 0x81 LL) ---
+    // --- Laenge lesen (Kurz- oder Langform). Alle Laengen stammen von der
+    //     Karte und werden strikt gegen dataLen validiert. ---
     const int lenPos = i + tSize;
     int len = data[lenPos];
     int lenSize = 1;
     if (len & 0x80) {
       const int n = len & 0x7F;
+      if (n == 0 || n > 2 || lenPos + n >= dataLen) break;  // EMV nutzt nur 81/82
       len = 0;
-      for (int k = 0; k < n && (lenPos + 1 + k) < dataLen; ++k) {
+      for (int k = 0; k < n; ++k) {
         len = (len << 8) | data[lenPos + 1 + k];
       }
       lenSize = 1 + n;
     }
     const int valPos = lenPos + lenSize;
-    if (valPos > dataLen) break;
+    if (len < 0 || valPos > dataLen || len > dataLen - valPos) break;  // OOB-Schutz
 
     if (currentTag == tag) {
       return tagStart;
@@ -671,12 +683,11 @@ int NfcModule::findTag(const uint8_t* data, int dataLen, uint32_t tag) {
     // In konstruierte Templates absteigen (Bit 6 des ersten Tag-Bytes gesetzt:
     // 0x6F, 0xA5, 0x70, 0x77, 0x61, ...). EMV ist stark verschachtelt.
     if (data[tagStart] & 0x20) {
-      const int subLen = (valPos + len <= dataLen) ? len : (dataLen - valPos);
-      const int sub = findTag(&data[valPos], subLen, tag);
+      const int sub = findTag(&data[valPos], len, tag, depth + 1);
       if (sub != -1) return valPos + sub;
     }
 
-    i = valPos + len;
+    i = valPos + len;   // valPos > i und len >= 0 -> garantierter Fortschritt
   }
   return -1;
 }
