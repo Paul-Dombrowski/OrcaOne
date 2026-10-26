@@ -26,14 +26,16 @@ einen anderen Leser.
 ## Was es aktuell kann
 
 - Beim Start fortlaufend nach ISO14443A-Tags suchen und die vom PN532 gelieferten
-  Erkennungsdaten sowie rohe Antworten auf Type-2-Leseanforderungen als Hex
+  Erkennungsdaten sowie Antworten einer mehrstufigen Type-2-Leseabfolge als Hex
   ausgeben.
+- Leere Suchzyklen bleiben still. Bei einem erkannten Tag sind Erkennung,
+  gesendete Type-2-READ-Page und Antwortlaenge in der seriellen Ausgabe
+  beschriftet.
 - Keine UID-Deduplizierung, NDEF-Interpretation oder textuelle Einordnung von
   Seiteninhalten und Kartenstatus vornehmen.
-- Die Rohdatenansicht ist absichtlich auf Pages 4-39 begrenzt: Sie umfasst den
-  üblichen Nutzspeicherbereich gängiger Type-2-Testtags und liest weder
-  Hersteller-/UID-Pages 0-3 noch darüberliegende Konfigurationspages. Nicht
-  unterstützte, kleinere oder geschützte Tags können vor Page 39 abbrechen.
+- Als Beispiel werden Pages 4 und 8 gelesen. Die Folge ist in `ReadPages` in
+  `NfcModule.cpp` konfiguriert; jeder Eintrag löst einen Type-2-READ für vier
+  aufeinanderfolgende Seiten aus.
 
 ## Befehle (`handleCommand`)
 
@@ -87,13 +89,17 @@ einen anderen Leser.
   I²C-Taktleitung während interner Verarbeitung strecken kann.
 - Während des Wartens fragt der Treiber nur das einzelne PN532-Statusbyte ab;
   den Antwortframe liest er erst, sobald der PN532 „bereit“ meldet.
-- Die Rohdatenansicht nutzt `mifareultralight_ReadPagesRaw()` und gibt die
-  empfangenen Antwortbytes pro Vier-Page-Leseanforderung aus. Sie liest nicht
-  universell alle Tag-Technologien.
+- Die Type-2-Leseabfolge nutzt `mifareultralight_ReadPagesRaw()`. Sie liest
+  nicht universell alle Tag-Technologien und sendet keine frei wählbaren
+  APDUs oder Schreibbefehle.
+- Jede Antwort bleibt in `NfcModule::_lastCommandResponse` gespeichert; die
+  Byteanzahl steht in `_lastCommandResponseLength`. `processCommandResponse()`
+  verarbeitet die Antwort vor dem nächsten Lesezugriff und ist der vorgesehene
+  Erweiterungspunkt für eigene Auswertungen.
 - Jede Zeile enthält ausschließlich Bytes als Hex. Der erste Hex-Datensatz ist
   eine empfangene Erkennungsantwort des PN532 (ohne PN532-/I²C-Transportrahmen);
-  danach folgen rohe Antwortbytes zu Leseanforderungen für Pages 4-39. Es gibt
-  keine textuelle Sortierung nach UID, leerem Inhalt oder Kartenstatus.
+  danach folgen rohe Antworten für die Seiten-Leseanforderungen. Es gibt keine
+  textuelle Sortierung nach UID, leerem Inhalt oder Kartenstatus.
 - Vor dem Scannen wird `setPassiveActivationRetries()` auf einen endlichen Wert
   gesetzt. Der PN532 muss einen Suchbefehl beenden können, bevor `update()` den
   nächsten sendet; der Host-Timeout ist dafür größer als ein einzelnes Retry.

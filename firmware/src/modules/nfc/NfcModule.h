@@ -16,20 +16,21 @@ public:
 
 private:
   static constexpr uint8_t MaxUidLength = 7;
-  static constexpr uint8_t FirstRawPage = 4;
-  static constexpr uint8_t LastRawPage = 39;
-  static constexpr uint8_t MaxRawResponseLength = 32;
+  static constexpr uint8_t MaxResponseLength = 32;
   static constexpr uint8_t MaxActivationResponseLength = 32;
 
   PN532_I2C _transport;
   PN532 _reader;
+  uint8_t _lastCommandResponse[MaxResponseLength] = {};
+  int16_t _lastCommandResponseLength = -1;
   bool _ok = false;
   bool _readPending = false;
-  bool _rawDumpPending = false;
+  bool _commandSequenceActive = false;
   bool _hasPolled = false;
   unsigned long _lastPollMs = 0;
-  uint8_t _nextRawPage = FirstRawPage;
+  uint8_t _commandIndex = 0;
 
-  void dumpNextRawPages();
+  void sendNextReadCommand();
+  void processCommandResponse();
   void printHex(const uint8_t* data, uint8_t length);
 };

@@ -3,6 +3,10 @@
 #include "../../config.h"
 #include <Wire.h>
 
+namespace {
+constexpr uint8_t ReadPages[] = {0x00, 0xA4, 0x04, 0x00, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x43, 0x30, 0x11};
+}
+
 NfcModule::NfcModule()
     : _transport(Wire, PIN_I2C_SDA, PIN_I2C_SCL, PN532_I2C_ADDR),
       _reader(_transport) {}
@@ -38,7 +42,7 @@ void NfcModule::begin() {
   _readPending = true;
   Serial.print("[nfc] PN532 Firmware-Version: ");
   Serial.println((version >> 16) & 0xFF, DEC);
-  Serial.println("[nfc] Bereit - NFC-Tag wird gesucht");
+  Serial.println("[nfc] Bereit - NFC-Tag wird gesucht...");
 }
 
 void NfcModule::update() {
@@ -50,8 +54,13 @@ void NfcModule::update() {
   _lastPollMs = now;
   _hasPolled = true;
 
-  if (_rawDumpPending) {
-    dumpNextRawPages();
+  if (_commandSequenceActive) {
+    processCommandResponse();
+    if (_commandIndex < sizeof(ReadPages)) {
+      sendNextReadCommand();
+    } else {
+      _commandSequenceActive = false;
+    }
     return;
   }
 
@@ -63,9 +72,6 @@ void NfcModule::update() {
       PN532_MIFARE_ISO14443A, uid, &uidLength, NFC_READ_TIMEOUT_MS,
       activationResponse, sizeof(activationResponse),
       &activationResponseLength);
-  if (activationResponseLength > 0) {
-    printHex(activationResponse, activationResponseLength);
-  }
   if (!targetDetected) {
     return;
   }
@@ -74,24 +80,42 @@ void NfcModule::update() {
     return;
   }
 
-  _nextRawPage = FirstRawPage;
-  _rawDumpPending = true;
+  Serial.println("[nfc] ISO14443A-Tag erkannt; Erkennungsantwort:");
+  if (activationResponseLength > 0) {
+    printHex(activationResponse, activationResponseLength);
+  }
+
+  _commandSequenceActive = true;
+  _commandIndex = 0;
+  sendNextReadCommand();
 }
 
-void NfcModule::dumpNextRawPages() {
-  uint8_t response[MaxRawResponseLength];
-  const int16_t responseLength = _reader.mifareultralight_ReadPagesRaw(
-      _nextRawPage, response, sizeof(response));
-  if (responseLength > 0) {
-    printHex(response, static_cast<uint8_t>(responseLength));
+void NfcModule::sendNextReadCommand() {
+  const uint8_t firstPage = ReadPages[_commandIndex];
+  Serial.print("[nfc] Sende Type-2-READ ab Page ");
+  Serial.println(firstPage);
+
+  _lastCommandResponseLength = _reader.mifareultralight_ReadPagesRaw(
+      firstPage, _lastCommandResponse,
+      sizeof(_lastCommandResponse));
+  ++_commandIndex;
+}
+
+void NfcModule::processCommandResponse() {
+  if (_lastCommandResponseLength > 0) {
+    Serial.print("[nfc] Antwort fuer Page ");
+    Serial.print(ReadPages[_commandIndex - 1]);
+    Serial.print(" (");
+    Serial.print(_lastCommandResponseLength);
+    Serial.println(" Bytes):");
+    printHex(_lastCommandResponse,
+             static_cast<uint8_t>(_lastCommandResponseLength));
+    return;
   }
 
-  _nextRawPage += 4;
-  if (_nextRawPage > LastRawPage) {
-    _rawDumpPending = false;
-  } else if (responseLength < 0) {
-    _rawDumpPending = false;
-  }
+  Serial.print("[nfc] Keine gueltige Antwort fuer Page ");
+  Serial.println(ReadPages[_commandIndex - 1]);
+  _commandSequenceActive = false;
 }
 
 void NfcModule::printHex(const uint8_t* data, uint8_t length) {
@@ -114,7 +138,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
   if (!_ok || action != "read") return false;
 
   _readPending = true;
-  _rawDumpPending = false;
+  _commandSequenceActive = false;
   _hasPolled = false;
   return true;
 }
