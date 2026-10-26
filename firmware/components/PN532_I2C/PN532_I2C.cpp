@@ -238,7 +238,11 @@ int16_t PN532_I2C::readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
     }
 
     const int16_t responseLength = getResponseLength(buf, len, timeout);
-    if (responseLength < 2 || responseLength > 24 ||
+    // Obergrenze 255 = max. Wert des 1-Byte-LEN-Felds des PN532. Die fruehere
+    // 24 deckelte auf UID-/Type-2-Groesse und verwarf jede EMV-Antwort. Der
+    // Empfangspuffer (_rxBuffer[270]) fasst den resultierenden Frame; die
+    // Aufrufer-Kapazitaet bleibt durch "responseLength - 2 > len" geschuetzt.
+    if (responseLength < 2 || responseLength > 255 ||
         responseLength - 2 > len) {
         return responseLength < 0 ? responseLength : PN532_INVALID_FRAME;
     }

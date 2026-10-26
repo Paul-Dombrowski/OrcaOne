@@ -27,9 +27,13 @@ private:
     uint8_t _address;
     bool _ready = false;
     uint8_t command;
-    uint8_t _txBuffer[32] = {};
+    // Groesse: PN532-Frame = 6 (RDY+Preamble+Startcode+LEN+LCS) + Nutzlast + 2
+    // (DCS+Postamble). Fuer EMV-Antworten (Nutzlast bis 255) daher >= 263.
+    // Fruehere 32 Byte reichten nur fuer UID-/Type-2-Reads und verwarfen jede
+    // groessere APDU-Antwort bereits in requestFrom().
+    uint8_t _txBuffer[270] = {};
     uint8_t _txLength = 0;
-    uint8_t _rxBuffer[32] = {};
+    uint8_t _rxBuffer[270] = {};
     size_t _rxLength = 0;
     size_t _rxIndex = 0;
     
