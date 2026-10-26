@@ -161,13 +161,27 @@ void NfcModule::processCard() {
       _lastCardType = String(item.label);
     }
 
-    // 3. GET PROCESSING OPTIONS (GPO) senden, um AFL zu ermitteln
+    // 3. GET PROCESSING OPTIONS (GPO) senden
     uint8_t afl[64] = {0};
     uint8_t aflLen = 0;
-    bool gpoSuccess = tryGetProcessingOptions(fci, fciLen, afl, aflLen);
+    uint8_t gpo[MaxBufferLength];
+    uint8_t gpoLen = 0;
+    bool aflFound = tryGetProcessingOptions(fci, fciLen, afl, aflLen, gpo, gpoLen);
 
-    // 4. Records auslesen
-    if (readCardRecords(gpoSuccess ? afl : nullptr, aflLen)) {
+    // 4. Kartendaten gewinnen.
+    //    a) Viele kontaktlose Karten (qVSDC, z. B. Visa) liefern Track 2 / PAN
+    //       direkt in der GPO-Antwort (Tag 57), ohne AFL. Das ist die
+    //       massgebliche Quelle - zuerst dort suchen.
+    bool gotData = false;
+    if (gpoLen > 0) {
+      gotData = parseRecordData(gpo, gpoLen);
+    }
+    //    b) Sonst klassisch ueber das AFL die Records lesen.
+    if (!gotData) {
+      gotData = readCardRecords(aflFound ? afl : nullptr, aflLen);
+    }
+
+    if (gotData) {
       _cardReadSuccess = true;
       Serial.println("[SUCCESS] Kartendaten erfolgreich gelesen!");
       break;
@@ -313,8 +327,10 @@ uint8_t NfcModule::buildPdolData(const uint8_t* pdol, uint8_t pdolLen,
 }
 
 bool NfcModule::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
-                                        uint8_t* outAfl, uint8_t& outAflLen) {
+                                        uint8_t* outAfl, uint8_t& outAflLen,
+                                        uint8_t* outGpo, uint8_t& outGpoLen) {
   outAflLen = 0;
+  outGpoLen = 0;
 
   // GPO-Kommando bauen. Verlangt die AID ein PDOL (Tag 9F38 im FCI), werden die
   // Werte in den geforderten Laengen geliefert; sonst leeres PDOL (83 00).
@@ -379,6 +395,17 @@ bool NfcModule::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
   }
 
   const int dataLen = responseLength - 2;
+
+  // Rohe GPO-Nutzdaten (ohne SW) nach aussen geben. Bei qVSDC-Karten stehen
+  // hier Track 2 / PAN (Tag 57) direkt drin und werden vom Aufrufer bevorzugt
+  // ausgewertet - auch wenn (wie dann ueblich) kein AFL vorhanden ist.
+  if (outGpo && dataLen > 0) {
+    const uint8_t n = (dataLen <= static_cast<int>(MaxBufferLength))
+                          ? static_cast<uint8_t>(dataLen)
+                          : static_cast<uint8_t>(MaxBufferLength);
+    memcpy(outGpo, response, n);
+    outGpoLen = n;
+  }
 
   // AFL-Suche, robust fuer beide GPO-Antwortformate:
   //  Format 2: Template 0x77 { 82 AIP, 94 AFL, ... } -> AFL in Tag 0x94
