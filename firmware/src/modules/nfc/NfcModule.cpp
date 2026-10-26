@@ -195,6 +195,13 @@ bool NfcModule::selectPpse(std::vector<EmvAid>& aidList) {
     return false;
   }
 
+  // [DEBUG] Rohantwort der Karte auf PPSE - temporaer zur Fehlersuche.
+  Serial.print("[DEBUG] PPSE Rohantwort (");
+  Serial.print(responseLength);
+  Serial.print(" Byte): ");
+  printHex(response, responseLength);
+  Serial.println();
+
   uint8_t sw1 = response[responseLength - 2];
   uint8_t sw2 = response[responseLength - 1];
 
@@ -227,10 +234,28 @@ bool NfcModule::selectAid(const uint8_t* aid, uint8_t aidLen) {
   uint8_t responseLength = sizeof(response);
 
   bool success = _reader.inDataExchange(cmd, 5 + aidLen + 1, response, &responseLength);
-  if (!success || responseLength < 2) return false;
+  if (!success || responseLength < 2) {
+    // [DEBUG] temporaer: zeigt, ob die Karte ueberhaupt antwortet.
+    Serial.print("[DEBUG] AID SELECT ohne verwertbare Antwort (success=");
+    Serial.print(success ? "true" : "false");
+    Serial.print(", len=");
+    Serial.print(responseLength);
+    Serial.println(")");
+    return false;
+  }
 
   uint8_t sw1 = response[responseLength - 2];
   uint8_t sw2 = response[responseLength - 1];
+  // [DEBUG] temporaer: echtes Statuswort + Rohantwort je AID.
+  Serial.print("[DEBUG] AID SELECT SW: 0x");
+  if (sw1 < 0x10) Serial.print('0');
+  Serial.print(sw1, HEX);
+  Serial.print(" 0x");
+  if (sw2 < 0x10) Serial.print('0');
+  Serial.print(sw2, HEX);
+  Serial.print("  Rohantwort: ");
+  printHex(response, responseLength);
+  Serial.println();
   return (sw1 == 0x90 && sw2 == 0x00);
 }
 
