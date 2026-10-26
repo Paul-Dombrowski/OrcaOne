@@ -158,7 +158,11 @@ public:
 
     // ISO14443A functions
     bool inListPassiveTarget();
-    bool readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength, uint16_t timeout = 1000);
+    bool readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid,
+                             uint8_t *uidLength, uint16_t timeout = 1000,
+                             uint8_t *rawResponse = 0,
+                             uint8_t rawResponseCapacity = 0,
+                             uint8_t *rawResponseLength = 0);
     bool inDataExchange(uint8_t *send, uint8_t sendLength, uint8_t *response, uint8_t *responseLength);
 
     // Mifare Classic functions
@@ -172,6 +176,8 @@ public:
 
     // Mifare Ultralight functions
     uint8_t mifareultralight_ReadPage (uint8_t page, uint8_t *buffer);
+    int16_t mifareultralight_ReadPagesRaw(uint8_t firstPage, uint8_t *buffer,
+                                          uint8_t bufferLength);
     uint8_t mifareultralight_WritePage (uint8_t page, uint8_t *buffer);
 
     // FeliCa Functions

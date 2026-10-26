@@ -379,8 +379,16 @@ bool PN532::setRFField(uint8_t autoRFCA, uint8_t rFOnOff)
     @returns 1 if everything executed properly, 0 for an error
 */
 /**************************************************************************/
-bool PN532::readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength, uint16_t timeout)
+bool PN532::readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid,
+                                uint8_t *uidLength, uint16_t timeout,
+                                uint8_t *rawResponse,
+                                uint8_t rawResponseCapacity,
+                                uint8_t *rawResponseLength)
 {
+    if (rawResponseLength != 0) {
+        *rawResponseLength = 0;
+    }
+
     pn532_packetbuffer[0] = PN532_COMMAND_INLISTPASSIVETARGET;
     pn532_packetbuffer[1] = 1;  // max 1 cards at once (we can set this to 2 later)
     pn532_packetbuffer[2] = cardbaudrate;
@@ -392,6 +400,19 @@ bool PN532::readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uid
     // read data packet
     const int16_t responseLength =
         HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer), timeout);
+    if (responseLength <= 0) {
+        return 0x0;
+    }
+
+    if (rawResponse != 0 && rawResponseLength != 0) {
+        const uint8_t copyLength =
+            responseLength < rawResponseCapacity
+                ? static_cast<uint8_t>(responseLength)
+                : rawResponseCapacity;
+        memcpy(rawResponse, pn532_packetbuffer, copyLength);
+        *rawResponseLength = copyLength;
+    }
+
     if (responseLength < 6) {
         return 0x0;
     }
@@ -736,23 +757,42 @@ uint8_t PN532::mifareultralight_ReadPage (uint8_t page, uint8_t *buffer)
         return 0;
     }
 
-    /* Read the response packet */
-    HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer));
+    /* Read the response packet: status byte plus four page bytes. */
+    const int16_t responseLength =
+        HAL(readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer));
+    if (responseLength < 5) {
+        return 0;
+    }
 
-    /* If byte 8 isn't 0x00 we probably have an error */
+    /* Reject a failed card-level data exchange. */
     if (pn532_packetbuffer[0] == 0x00) {
-        /* Copy the 4 data bytes to the output buffer         */
-        /* Block content starts at byte 9 of a valid response */
-        /* Note that the command actually reads 16 bytes or 4  */
-        /* pages at a time ... we simply discard the last 12  */
-        /* bytes                                              */
-        memcpy (buffer, pn532_packetbuffer + 1, 4);
+        memcpy(buffer, pn532_packetbuffer + 1, 4);
     } else {
         return 0;
     }
 
     // Return OK signal
     return 1;
+}
+
+int16_t PN532::mifareultralight_ReadPagesRaw(
+    uint8_t firstPage, uint8_t *buffer, uint8_t bufferLength)
+{
+    if (firstPage > 60) {
+        DMSG("Page value out of range\n");
+        return PN532_INVALID_FRAME;
+    }
+
+    pn532_packetbuffer[0] = PN532_COMMAND_INDATAEXCHANGE;
+    pn532_packetbuffer[1] = 1;
+    pn532_packetbuffer[2] = MIFARE_CMD_READ;
+    pn532_packetbuffer[3] = firstPage;
+
+    if (HAL(writeCommand)(pn532_packetbuffer, 4)) {
+        return PN532_INVALID_FRAME;
+    }
+
+    return HAL(readResponse)(buffer, bufferLength);
 }
 
 /**************************************************************************/

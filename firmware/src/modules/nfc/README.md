@@ -15,7 +15,7 @@ docs/ARBEITSWEISE.md · diese README · core/Module.h · storage/README.md
 (NDEF-Inhalte). Liegen als Komponenten in `firmware/components/`
 (siehe [`../../../components/README.md`](../../../components/README.md)) —
 **nicht** Adafruit PN532.
-**Rolle:** Sensor (Tag lesen) **und** Aktor (Tag beschreiben/klonen).
+**Rolle:** Rohdaten-Leser für ISO14443A- und Type-2-Tags.
 `name()` = `"nfc"`.
 
 **Reichweite/Technik:** PN532 arbeitet auf **13,56 MHz** und deckt damit sowohl
@@ -25,33 +25,26 @@ einen anderen Leser.
 
 ## Was es aktuell kann
 
-- Beim Start einmalig nach einem NFC/RFID-Tag suchen und dessen UID lesen.
-- Mit dem Befehl `read` einen weiteren Lesevorgang anfordern.
-- Die zuletzt gelesene UID im Status bereitstellen.
-- Die erste Umsetzung unterstützt UIDs bis 7 Bytes, passend zur Signatur des
-  vorhandenen PN532-Treibers.
-
-## Was es später können soll
-
-- Gelesene Daten zwischenspeichern und auf einen anderen (beschreibbaren) Tag
-  **schreiben** → „klonen". *(Hinweis: Eine 1:1-Kopie inklusive der fest
-  eingebrannten UID geht nur mit speziellen „magic"-Karten; normal lässt sich nur
-  der beschreibbare Inhalt kopieren.)*
-- Gelesene UID an Display und Handy melden.
-- Bis zu **3 Tags** speichern (`NFC_SLOT_COUNT` in [`../../config.h`](../../config.h)).
+- Beim Start fortlaufend nach ISO14443A-Tags suchen und die vom PN532 gelieferten
+  Erkennungsdaten sowie rohe Antworten auf Type-2-Leseanforderungen als Hex
+  ausgeben.
+- Keine UID-Deduplizierung, NDEF-Interpretation oder textuelle Einordnung von
+  Seiteninhalten und Kartenstatus vornehmen.
+- Die Rohdatenansicht ist absichtlich auf Pages 4-39 begrenzt: Sie umfasst den
+  üblichen Nutzspeicherbereich gängiger Type-2-Testtags und liest weder
+  Hersteller-/UID-Pages 0-3 noch darüberliegende Konfigurationspages. Nicht
+  unterstützte, kleinere oder geschützte Tags können vor Page 39 abbrechen.
 
 ## Befehle (`handleCommand`)
 
 | action | params | Wirkung |
 |---|---|---|
-| `read` | – | einen weiteren Tag einlesen und die UID merken |
-| `write` | `{ "slot": <n> }` | gemerkte Daten auf aktuellen Tag schreiben |
-| `clone` | – | lesen und direkt zum Schreiben vormerken |
+| `read` | – | einen neuen Scan-Zyklus sofort anstoßen |
 
 ## Status (`statusJson`)
 
 ```json
-{ "ok": true, "ready": true, "lastUid": "04A1B2C3", "readPending": false }
+{ "ok": true, "ready": true }
 ```
 
 ## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
@@ -68,11 +61,9 @@ einen anderen Leser.
   testet.
 - Das OLED-Display teilt sich den I2C-Bus mit dem PN532. Fehlt eines der beiden,
   funktioniert das andere trotzdem.
-- **Aktuell testen:** im Serial Monitor nach dem Start die ausgegebene
-  PN532-Meldung abwarten und einen Tag an den Leser halten. Bis Serial-Konsole
-  und CommandRouter eingebunden sind, startet das Modul beim Einschalten
-  selbstständig einen Lesevorgang. Danach wird `nfc read` zum erneuten Auslesen
-  verfügbar sein.
+- **Aktuell testen:** im Serial Monitor nach dem Start einen Tag an den Leser
+  halten. Das Modul sucht fortlaufend nach Tags und gibt empfangene Bytes als Hex
+  aus.
 
 ## Umsetzungshinweise (auch für KI)
 
@@ -81,11 +72,8 @@ einen anderen Leser.
   #include <Wire.h>
   #include <PN532_I2C.h>
   #include <PN532.h>
-  // optional fuer NDEF-Inhalte:
-  #include <NfcAdapter.h>
-
   PN532_I2C pn532_i2c(Wire, PIN_I2C_SDA, PIN_I2C_SCL, PN532_I2C_ADDR);
-  PN532     nfc(pn532_i2c);          // oder: NfcAdapter nfc(pn532_i2c);
+  PN532     nfc(pn532_i2c);
   ```
 - `nfc.begin()` initialisiert den I²C-Bus und die Adresse über die zentralen
   Werte aus `config.h`.
@@ -99,17 +87,20 @@ einen anderen Leser.
   I²C-Taktleitung während interner Verarbeitung strecken kann.
 - Während des Wartens fragt der Treiber nur das einzelne PN532-Statusbyte ab;
   den Antwortframe liest er erst, sobald der PN532 „bereit“ meldet.
+- Die Rohdatenansicht nutzt `mifareultralight_ReadPagesRaw()` und gibt die
+  empfangenen Antwortbytes pro Vier-Page-Leseanforderung aus. Sie liest nicht
+  universell alle Tag-Technologien.
+- Jede Zeile enthält ausschließlich Bytes als Hex. Der erste Hex-Datensatz ist
+  eine empfangene Erkennungsantwort des PN532 (ohne PN532-/I²C-Transportrahmen);
+  danach folgen rohe Antwortbytes zu Leseanforderungen für Pages 4-39. Es gibt
+  keine textuelle Sortierung nach UID, leerem Inhalt oder Kartenstatus.
 - Vor dem Scannen wird `setPassiveActivationRetries()` auf einen endlichen Wert
   gesetzt. Der PN532 muss einen Suchbefehl beenden können, bevor `update()` den
   nächsten sendet; der Host-Timeout ist dafür größer als ein einzelnes Retry.
 - Die PN532-Antwort auf `SAMConfig()` kann ohne Nutzdaten kommen. Der
   Antwortparser akzeptiert deshalb einen gültigen Antwortframe mit einer
   Frame-Länge von 2 Bytes (TFI + Antwortcode).
-- NDEF-Inhalte (optional): über `NfcAdapter` — `tagPresent()`, `read()` →
-  `NfcTag`, `write(message)`.
 - Pins/Adresse ausschließlich aus [`../../config.h`](../../config.h) nehmen.
-- Speichern über `Storage.save("nfc", "slot1", jsonText)`; vorher `Storage.available()`
-  prüfen, aber **nie abbrechen**, wenn keine SD da ist (dann nur flüchtig im RAM).
 
 ## Sicherheit: NFC-Tags sind untrusted Eingaben
 
@@ -135,14 +126,7 @@ Absturz/Reboot. **Beim Umsetzen dieses Moduls deshalb:**
 - Alternativ die Bibliotheken patchen (Bounds-Checks) — dann im jeweiligen
   `components/<Lib>/HERKUNFT.md` als Änderung vermerken.
 
-## Idee zur Handy-Integration
-
-Das Smartphone hat selbst NFC. Perspektivisch könnte das Handy gelesene/kopierte
-Tag-Daten vom ESP32 abrufen (über die Web-API) und selbst weiterverwenden. Erst
-die Grundfunktion (lesen/schreiben am Gerät) bauen, diese Erweiterung später.
-
 ## To-do
 
 - [x] `NfcModule.h` / `.cpp` nach dem Muster aus [`../README.md`](../README.md) anlegen.
-- [x] `read` umsetzen und UID im Serial-Monitor ausgeben.
-- [ ] `write`/`clone` ergänzen.
+- [x] Empfangene Daten als Hex im Serial-Monitor ausgeben.

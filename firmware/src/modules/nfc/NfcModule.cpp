@@ -15,7 +15,11 @@ void NfcModule::begin() {
     return;
   }
 
-  const uint32_t version = _reader.getFirmwareVersion();
+  uint32_t version = 0;
+  for (uint8_t attempt = 0; attempt < 3 && version == 0; ++attempt) {
+    if (attempt > 0) delay(100);
+    version = _reader.getFirmwareVersion();
+  }
   if (version == 0) {
     Serial.println("[nfc] PN532 nicht gefunden - Modul inaktiv");
     return;
@@ -30,10 +34,8 @@ void NfcModule::begin() {
     Serial.println("[nfc] Passive Retry-Konfiguration fehlgeschlagen - Modul inaktiv");
     return;
   }
-
   _ok = true;
   _readPending = true;
-  _tagPresent = false;
   Serial.print("[nfc] PN532 Firmware-Version: ");
   Serial.println((version >> 16) & 0xFF, DEC);
   Serial.println("[nfc] Bereit - NFC-Tag wird gesucht");
@@ -48,38 +50,55 @@ void NfcModule::update() {
   _lastPollMs = now;
   _hasPolled = true;
 
+  if (_rawDumpPending) {
+    dumpNextRawPages();
+    return;
+  }
+
   uint8_t uid[MaxUidLength];
   uint8_t uidLength = 0;
-  if (!_reader.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength,
-                                   NFC_READ_TIMEOUT_MS)) {
-    _tagPresent = false;
+  uint8_t activationResponse[MaxActivationResponseLength];
+  uint8_t activationResponseLength = 0;
+  const bool targetDetected = _reader.readPassiveTargetID(
+      PN532_MIFARE_ISO14443A, uid, &uidLength, NFC_READ_TIMEOUT_MS,
+      activationResponse, sizeof(activationResponse),
+      &activationResponseLength);
+  if (activationResponseLength > 0) {
+    printHex(activationResponse, activationResponseLength);
+  }
+  if (!targetDetected) {
     return;
   }
 
   if (uidLength == 0 || uidLength > MaxUidLength) {
-    Serial.println("[nfc] Ungueltige UID-Laenge empfangen");
     return;
   }
 
-  static const char HexDigits[] = "0123456789ABCDEF";
-  char formattedUid[MaxUidLength * 2 + 1];
-  for (uint8_t i = 0; i < uidLength; ++i) {
-    formattedUid[i * 2] = HexDigits[uid[i] >> 4];
-    formattedUid[i * 2 + 1] = HexDigits[uid[i] & 0x0F];
+  _nextRawPage = FirstRawPage;
+  _rawDumpPending = true;
+}
+
+void NfcModule::dumpNextRawPages() {
+  uint8_t response[MaxRawResponseLength];
+  const int16_t responseLength = _reader.mifareultralight_ReadPagesRaw(
+      _nextRawPage, response, sizeof(response));
+  if (responseLength > 0) {
+    printHex(response, static_cast<uint8_t>(responseLength));
   }
-  formattedUid[uidLength * 2] = '\0';
 
-  const String currentUid(formattedUid);
-  if (_tagPresent && currentUid == _lastUid) return;
+  _nextRawPage += 4;
+  if (_nextRawPage > LastRawPage) {
+    _rawDumpPending = false;
+  } else if (responseLength < 0) {
+    _rawDumpPending = false;
+  }
+}
 
-  _lastUid = formattedUid;
-  _tagPresent = true;
-
-  Serial.print("[nfc] Card UID: ");
-  for (uint8_t i = 0; i < uidLength; ++i) {
-    if (uid[i] < 0x10) Serial.print('0');
-    Serial.print(uid[i], HEX);
-    Serial.print(' ');
+void NfcModule::printHex(const uint8_t* data, uint8_t length) {
+  for (uint8_t i = 0; i < length; ++i) {
+    if (data[i] < 0x10) Serial.print('0');
+    Serial.print(data[i], HEX);
+    if (i + 1 < length) Serial.print(' ');
   }
   Serial.println();
 }
@@ -87,9 +106,7 @@ void NfcModule::update() {
 void NfcModule::statusJson(JsonObject obj) {
   obj["ok"] = _ok;
   obj["ready"] = _ok;
-  obj["lastUid"] = _lastUid;
   obj["readPending"] = _readPending;
-  obj["tagPresent"] = _tagPresent;
 }
 
 bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
@@ -97,7 +114,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
   if (!_ok || action != "read") return false;
 
   _readPending = true;
-  _tagPresent = false;
+  _rawDumpPending = false;
   _hasPolled = false;
   return true;
 }

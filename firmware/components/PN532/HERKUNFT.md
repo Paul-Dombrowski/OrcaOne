@@ -1,5 +1,5 @@
 - Quelle:      Seeed/Elechouse PN532 Arduino-Bibliothek; Upstream: https://github.com/Seeed-Studio/PN532
 - Version:     Im bestehenden Repository-Snapshot nicht dokumentiert; dort zuletzt vorhanden am 2026-10-24.
 - Lizenz:      BSD; siehe license.txt.
-- Geändert:    ja — UID-Antworten werden vor dem Kopieren auf maximal 7 Bytes und die Antwortgröße geprüft; zwei URI-Pufferwerte sind für den aktuellen ESP-IDF-Compiler explizit gecastet.
+- Geändert:    ja — UID- und Type-2-Page-Antworten werden vor dem Kopieren auf maximale Länge und ausreichende Antwortdaten geprüft; empfangene ISO14443A-Erkennungsantworten und Type-2-Leseantworten können roh ausgegeben werden; zwei URI-Pufferwerte sind für den aktuellen ESP-IDF-Compiler explizit gecastet.
 - Genutzt von: firmware/src/modules/nfc
