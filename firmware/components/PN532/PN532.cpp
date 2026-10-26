@@ -433,6 +433,10 @@ bool PN532::readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid,
     if (pn532_packetbuffer[0] != 1)
         return 0;
 
+    // Logische Target-Nummer merken (Byte[1] = Tg). Ohne sie bleibt inListedTag
+    // bei 0 -> inDataExchange() spricht kein gueltiges Target an -> jeder
+    // EMV-APDU (PPSE/SELECT/GPO/READ RECORD) scheitert.
+    inListedTag = pn532_packetbuffer[1];
     const uint8_t receivedUidLength = pn532_packetbuffer[5];
     if (receivedUidLength == 0 || receivedUidLength > 7 ||
         receivedUidLength > responseLength - 6) {
