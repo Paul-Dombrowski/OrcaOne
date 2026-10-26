@@ -14,3 +14,6 @@ firmware/src/secrets.h
 # Betriebssystem
 Thumbs.db
 .DS_Store
+
+# Claude Code (lokale Einstellungen & Worktrees, nicht ins Repo)
+.claude/
