@@ -1,9 +1,4 @@
 #include "NfcModule.h"
-#include "EmvEmulator.h"
-#include "EmvReader.h"
-#include "EmvTags.h"
-#include "EmvTypes.h"
-#include "Tlv.h"
 
 #include "../../config.h"
 #include <Wire.h>

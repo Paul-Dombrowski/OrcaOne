@@ -164,6 +164,18 @@ Absturz/Reboot. **Beim Umsetzen dieses Moduls deshalb:**
 - Alternativ die Bibliotheken patchen (Bounds-Checks) — dann im jeweiligen
   `components/<Lib>/HERKUNFT.md` als Änderung vermerken.
 
+## Dateien
+
+| Datei | Verantwortlichkeit |
+|---|---|
+| `EmvTypes.h/.cpp` | Datentypen EmvAid, CardData, EmvCapture (+ Methoden) |
+| `Tlv.h/.cpp` | zustandslose TLV-/Byte-Helfer |
+| `EmvTags.h/.cpp` | EMV-Tag-Namen + Tag-Hex-Ausgabe |
+| `EmvDump.h/.cpp` | annotierter Diagnose-Dump der Kartendaten |
+| `EmvReader.h/.cpp` | EMV-Lesefluss (PPSE→AID→GPO→Records), füllt CardData+EmvCapture |
+| `EmvEmulator.h/.cpp` | Karten-Emulation (Capture-Replay, ISO14443-4-PICC) |
+| `NfcModule.h/.cpp` | Module-Vertrag, Orchestrierung, Befehls-Routing |
+
 ## To-do
 
 - [x] `NfcModule.h` / `.cpp` nach dem Muster aus [`../README.md`](../README.md) anlegen.

@@ -3,7 +3,6 @@
 #include "../../core/Module.h"
 #include <PN532.h>
 #include <PN532_I2C.h>
-#include <vector>
 #include "EmvTypes.h"
 #include "EmvEmulator.h"
 #include "EmvReader.h"
