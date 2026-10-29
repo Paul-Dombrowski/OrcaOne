@@ -5,6 +5,7 @@
 #include <PN532_I2C.h>
 #include <vector>
 #include "EmvTypes.h"
+#include "EmvDump.h"
 
 class NfcModule : public Module {
 public:
@@ -24,6 +25,7 @@ private:
 
   PN532_I2C _transport;
   PN532 _reader;
+  EmvDump _dump{_reader};
 
   bool _ok = false;
   bool _readPending = true;
@@ -68,22 +70,6 @@ private:
   // Karte prueft primaer die Laengen.
   static uint8_t buildPdolData(const uint8_t* pdol, uint8_t pdolLen,
                                uint8_t* out, size_t outCap);
-
-  // --- Vollstaendiger TLV-Dump: alle ueber NFC lesbaren Kartendaten ---
-  // Dumpt FCI + GPO-Antwort + AFL-Records + GET-DATA-Einzel-Tags annotiert.
-  void dumpAllCardData(const uint8_t* fci, uint8_t fciLen,
-                       const uint8_t* gpo, uint8_t gpoLen,
-                       const uint8_t* afl, uint8_t aflLen, bool aflValid);
-  // Rekursiver TLV-Walker: gibt jeden Tag mit Name/Laenge/Wert aus und steigt
-  // in konstruierte Templates ab. depth = Einrueckung + Rekursionsschutz.
-  void dumpTlv(const uint8_t* data, int dataLen, int depth);
-  // Klartext-Dekodierung fuer ausgewaehlte Primitiv-Tags (PAN, Track 2, Datum).
-  void decodeHint(uint32_t tag, const uint8_t* val, int len, int depth);
-  // Liest alle im AFL referenzierten Records und dumpt sie.
-  void readAndDumpRecords(const uint8_t* afl, uint8_t aflLen);
-  // GET DATA (80 CA) fuer gaengige Einzel-Tags (ATC, PIN-Zaehler, ...).
-  void dumpGetDataTags();
-  bool getDataTag(uint32_t tag, uint8_t* out, uint8_t& outLen);
 
   // ------------------------------------------------------------------------
   //  Karten-Emulation (Capture & Replay)
