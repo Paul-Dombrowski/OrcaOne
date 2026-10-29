@@ -1,5 +1,7 @@
 #include "NfcModule.h"
 #include "EmvTags.h"
+#include "EmvTypes.h"
+#include "Tlv.h"
 
 #include "../../config.h"
 #include <Wire.h>
@@ -166,7 +168,7 @@ void NfcModule::processCard() {
       Serial.print(item.label);
       Serial.print(", ");
     }
-    printHex(item.aid, item.len);
+    Tlv::printHex(item.aid, item.len);
     Serial.print(")... ");
 
     uint8_t fci[MaxBufferLength];
@@ -253,7 +255,7 @@ bool NfcModule::selectPpse(std::vector<EmvAid>& aidList) {
   Serial.print("[DEBUG] PPSE Rohantwort (");
   Serial.print(responseLength);
   Serial.print(" Byte): ");
-  printHex(response, responseLength);
+  Tlv::printHex(response, responseLength);
   Serial.println();
 
   uint8_t sw1 = response[responseLength - 2];
@@ -270,7 +272,7 @@ bool NfcModule::selectPpse(std::vector<EmvAid>& aidList) {
   Serial.println("[EMV] PPSE erfolgreich beantwortet. Extrahiere AIDs...");
   // Fuer die Emulation: rohe PPSE-Antwort (ohne SW) mitschneiden.
   captureBlob(_emuPpse, _emuPpseLen, response, responseLength - 2);
-  extractAllAids(response, responseLength - 2, aidList);
+  Tlv::extractAllAids(response, responseLength - 2, aidList);
   return !aidList.empty();
 }
 
@@ -312,7 +314,7 @@ bool NfcModule::selectAid(const uint8_t* aid, uint8_t aidLen,
   if (sw2 < 0x10) Serial.print('0');
   Serial.print(sw2, HEX);
   Serial.print("  Rohantwort: ");
-  printHex(response, responseLength);
+  Tlv::printHex(response, responseLength);
   Serial.println();
 
   const bool ok = (sw1 == 0x90 && sw2 == 0x00);
@@ -380,7 +382,7 @@ bool NfcModule::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
 
   uint8_t pdolData[64];
   uint8_t pdolDataLen = 0;
-  int pdolIdx = (fci && fciLen) ? findTag(fci, fciLen, 0x9F38) : -1;
+  int pdolIdx = (fci && fciLen) ? Tlv::findTag(fci, fciLen, 0x9F38) : -1;
   if (pdolIdx != -1 && pdolIdx + 2 < fciLen) {
     uint8_t pdolLen = fci[pdolIdx + 2];   // 9F38 = 2-Byte-Tag -> Laengenbyte bei +2
     // pdolLen stammt von der Karte: auf die tatsaechlich vorhandenen Bytes klemmen.
@@ -421,7 +423,7 @@ bool NfcModule::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
   Serial.print("[DEBUG] GPO Rohantwort (");
   Serial.print(responseLength);
   Serial.print(" Byte): ");
-  printHex(response, responseLength);
+  Tlv::printHex(response, responseLength);
   Serial.println();
 
   if (sw1 != 0x90 || sw2 != 0x00) {
@@ -458,7 +460,7 @@ bool NfcModule::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
     bodyLen = (tlen <= dataLen - 2) ? tlen : (dataLen - 2);
   }
 
-  int aflIdx = findTag(body, bodyLen, 0x94);
+  int aflIdx = Tlv::findTag(body, bodyLen, 0x94);
   if (aflIdx != -1) {
     uint8_t len = body[aflIdx + 1];
     if (len <= 64 && aflIdx + 2 + len <= bodyLen) {
@@ -471,7 +473,7 @@ bool NfcModule::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
   }
 
   // Format 1: Tag 0x80 gefolgt von AIP (2 Byte) und AFL
-  int format1Idx = findTag(response, dataLen, 0x80);
+  int format1Idx = Tlv::findTag(response, dataLen, 0x80);
   if (format1Idx != -1) {
     uint8_t len = response[format1Idx + 1];
     if (len > 2) {
@@ -544,7 +546,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   bool parsedAnything = false;
 
   // 1. Tag 0x5A: PAN (Primäre Kontonummer)
-  int panIdx = findTag(data, dataLen, 0x5A);
+  int panIdx = Tlv::findTag(data, dataLen, 0x5A);
   if (panIdx != -1) {
     uint8_t panLen = data[panIdx + 1];
     String panStr = "";
@@ -568,7 +570,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 2. Tag 0x5F24: Ablaufdatum (JJ/MM)
-  int expIdx = findTag(data, dataLen, 0x5F24);
+  int expIdx = Tlv::findTag(data, dataLen, 0x5F24);
   if (expIdx != -1) {
     const uint8_t* expData = &data[expIdx + 3];
     char expStr[8];
@@ -582,12 +584,12 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 3. Tag 0x57: Track 2 Equivalent Data (oft vorhanden, wenn 0x5A nicht direkt existiert)
-  int tr2Idx = findTag(data, dataLen, 0x57);
+  int tr2Idx = Tlv::findTag(data, dataLen, 0x57);
   if (tr2Idx != -1) {
     uint8_t tr2Len = data[tr2Idx + 1];
     String tr2Pan = "";
     String tr2Exp = "";
-    parseTrack2(&data[tr2Idx + 2], tr2Len, tr2Pan, tr2Exp);
+    Tlv::parseTrack2(&data[tr2Idx + 2], tr2Len, tr2Pan, tr2Exp);
 
     if (_lastCardNumber.length() == 0 && tr2Pan.length() >= 12) {
       _lastCardNumber = tr2Pan;
@@ -608,7 +610,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 4. Tag 0x5F20: Cardholder Name (ASCII)
-  int nameIdx = findTag(data, dataLen, 0x5F20);
+  int nameIdx = Tlv::findTag(data, dataLen, 0x5F20);
   if (nameIdx != -1) {
     uint8_t nameLen = data[nameIdx + 2]; // 2-Byte Tag -> Laenge bei +2
     const uint8_t* namePtr = &data[nameIdx + 3];
@@ -625,7 +627,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 5. Tag 0x5F28: Issuer Country Code (ISO 3166-1 numerisch, 2 Bytes BCD, z.B. 0276 = DE)
-  int ccIdx = findTag(data, dataLen, 0x5F28);
+  int ccIdx = Tlv::findTag(data, dataLen, 0x5F28);
   if (ccIdx != -1) {
     const uint8_t* ccData = &data[ccIdx + 3];
     char ccBuf[8];
@@ -641,7 +643,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 6. Tag 0x5F25: Application Effective Date (Gueltig ab, JJMMTT BCD)
-  int effIdx = findTag(data, dataLen, 0x5F25);
+  int effIdx = Tlv::findTag(data, dataLen, 0x5F25);
   if (effIdx != -1) {
     const uint8_t* effData = &data[effIdx + 3];
     char effBuf[16];
@@ -653,7 +655,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 7. Tag 0x5F30: Service Code (3 Ziffern, Track 2 Service Attributes)
-  int scIdx = findTag(data, dataLen, 0x5F30);
+  int scIdx = Tlv::findTag(data, dataLen, 0x5F30);
   if (scIdx != -1) {
     const uint8_t* scData = &data[scIdx + 3];
     char scBuf[8];
@@ -665,7 +667,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 8. Tag 0x5F34: PAN Sequence Number (PSN, 1 Byte)
-  int psnIdx = findTag(data, dataLen, 0x5F34);
+  int psnIdx = Tlv::findTag(data, dataLen, 0x5F34);
   if (psnIdx != -1) {
     uint8_t psnVal = data[psnIdx + 3];
     char psnBuf[6];
@@ -677,7 +679,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 9. Tag 0x9F42: Application Currency Code (ISO 4217, z.B. 0978 = EUR)
-  int currIdx = findTag(data, dataLen, 0x9F42);
+  int currIdx = Tlv::findTag(data, dataLen, 0x9F42);
   if (currIdx != -1) {
     const uint8_t* currData = &data[currIdx + 3];
     char currBuf[8];
@@ -694,7 +696,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 10. Tag 0x82: Application Interchange Profile (AIP, 2 Bytes)
-  int aipIdx = findTag(data, dataLen, 0x82);
+  int aipIdx = Tlv::findTag(data, dataLen, 0x82);
   if (aipIdx != -1) {
     uint8_t aip1 = data[aipIdx + 2];
     uint8_t aip2 = data[aipIdx + 3];
@@ -711,18 +713,18 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 11. Tag 0x8E: Cardholder Verification Method (CVM) List
-  int cvmIdx = findTag(data, dataLen, 0x8E);
+  int cvmIdx = Tlv::findTag(data, dataLen, 0x8E);
   if (cvmIdx != -1) {
     uint8_t cvmLen = data[cvmIdx + 1];
     Serial.print(">> CVM-LISTE (Tag 0x8E, ");
     Serial.print(cvmLen);
     Serial.print(" Byte): ");
-    printHex(&data[cvmIdx + 2], cvmLen);
+    Tlv::printHex(&data[cvmIdx + 2], cvmLen);
     Serial.println();
   }
 
   // 12. Tag 0x9F07: Application Usage Control (AUC, 2 Bytes)
-  int aucIdx = findTag(data, dataLen, 0x9F07);
+  int aucIdx = Tlv::findTag(data, dataLen, 0x9F07);
   if (aucIdx != -1) {
     uint8_t auc1 = data[aucIdx + 3];
     uint8_t auc2 = data[aucIdx + 4];
@@ -734,171 +736,12 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
   }
 
   // 13. Tag 0x9F08: Application Version Number
-  int verIdx = findTag(data, dataLen, 0x9F08);
+  int verIdx = Tlv::findTag(data, dataLen, 0x9F08);
   if (verIdx != -1) {
     Serial.printf(">> APP VERSION (Tag 0x9F08): %02X%02X\n", data[verIdx + 3], data[verIdx + 4]);
   }
 
   return parsedAnything;
-}
-
-void NfcModule::parseTrack2(const uint8_t* track2Data, uint8_t track2Len, String& outPan, String& outExp) {
-  outPan = "";
-  outExp = "";
-  bool readingPan = true;
-  String digits = "";
-
-  for (int i = 0; i < track2Len; ++i) {
-    uint8_t high = (track2Data[i] >> 4) & 0x0F;
-    uint8_t low = track2Data[i] & 0x0F;
-
-    uint8_t nibbles[2] = {high, low};
-    for (uint8_t n : nibbles) {
-      if (n == 0x0D) { // Trennzeichen 'D'
-        readingPan = false;
-        continue;
-      }
-      if (n == 0x0F) { // End-Padding
-        break;
-      }
-      if (readingPan) {
-        outPan += String(n);
-      } else {
-        digits += String(n);
-      }
-    }
-  }
-
-  // Ablaufdatum folgt direkt nach 'D': JJMM
-  if (digits.length() >= 4) {
-    outExp = digits.substring(0, 2) + "/" + digits.substring(2, 4);
-  }
-}
-
-void NfcModule::extractAllAids(const uint8_t* data, int dataLen, std::vector<EmvAid>& aidList) {
-  int i = 0;
-  while (i < dataLen - 2) {
-    // Suche nach Tag 0x61 (Application Template) oder direkt Tag 0x4F (AID)
-    if (data[i] == 0x4F) {
-      int tagLen = data[i + 1];
-      if (tagLen > 0 && tagLen <= 16 && (i + 2 + tagLen <= dataLen)) {
-        EmvAid item{};
-        item.len = tagLen;
-        memcpy(item.aid, &data[i + 2], tagLen);
-        item.priority = 0;
-        item.label[0] = '\0';
-        aidList.push_back(item);
-      }
-      i += 2 + tagLen;
-    } else if (data[i] == 0x61) {
-      // Application Template gefunden -> darin Tag 0x4F und 0x50/0x87 suchen
-      int tmplLen = data[i + 1];
-      int subStart = i + 2;
-      int subEnd = subStart + tmplLen;
-      if (subEnd > dataLen) subEnd = dataLen;
-
-      EmvAid item{};
-      item.len = 0;
-      item.label[0] = '\0';
-      item.priority = 50;
-
-      int s = subStart;
-      while (s < subEnd - 1) {
-        uint32_t tag = data[s];
-        int tSize = 1;
-        if ((data[s] & 0x1F) == 0x1F) {
-          tag = (data[s] << 8) | data[s + 1];
-          tSize = 2;
-        }
-        if (s + tSize >= subEnd) break;
-        int l = data[s + tSize];
-        const uint8_t* val = &data[s + tSize + 1];
-
-        if (tag == 0x4F && l <= 16) {
-          item.len = l;
-          memcpy(item.aid, val, l);
-        } else if (tag == 0x50 && l < sizeof(item.label)) {
-          memcpy(item.label, val, l);
-          item.label[l] = '\0';
-        } else if (tag == 0x87 && l >= 1) {
-          item.priority = val[0] & 0x0F;
-        }
-        s += tSize + 1 + l;
-      }
-
-      if (item.len > 0) {
-        aidList.push_back(item);
-      }
-      i = subEnd;
-    } else {
-      // Nächster Tag
-      int tSize = 1;
-      if ((data[i] & 0x1F) == 0x1F) {
-        tSize = 2;
-      }
-      if (i + tSize >= dataLen) break;
-      int l = data[i + tSize];
-      i += tSize + 1 + l;
-    }
-  }
-}
-
-int NfcModule::findTag(const uint8_t* data, int dataLen, uint32_t tag, int depth) {
-  if (depth > 8 || dataLen <= 0) return -1;   // Rekursionsschutz (boesartige Karte)
-
-  int i = 0;
-  while (i < dataLen) {
-    const int tagStart = i;
-
-    // --- Tag lesen (1 oder 2 Bytes) ---
-    uint32_t currentTag = data[i];
-    int tSize = 1;
-    if ((data[i] & 0x1F) == 0x1F) {           // mehrbyte-Tag (z. B. 0x5F24, 0x9F38)
-      if (i + 1 >= dataLen) break;
-      currentTag = (static_cast<uint32_t>(data[i]) << 8) | data[i + 1];
-      tSize = 2;
-    }
-    if (i + tSize >= dataLen) break;
-
-    // --- Laenge lesen (Kurz- oder Langform). Alle Laengen stammen von der
-    //     Karte und werden strikt gegen dataLen validiert. ---
-    const int lenPos = i + tSize;
-    int len = data[lenPos];
-    int lenSize = 1;
-    if (len & 0x80) {
-      const int n = len & 0x7F;
-      if (n == 0 || n > 2 || lenPos + n >= dataLen) break;  // EMV nutzt nur 81/82
-      len = 0;
-      for (int k = 0; k < n; ++k) {
-        len = (len << 8) | data[lenPos + 1 + k];
-      }
-      lenSize = 1 + n;
-    }
-    const int valPos = lenPos + lenSize;
-    if (len < 0 || valPos > dataLen || len > dataLen - valPos) break;  // OOB-Schutz
-
-    if (currentTag == tag) {
-      return tagStart;
-    }
-
-    // In konstruierte Templates absteigen (Bit 6 des ersten Tag-Bytes gesetzt:
-    // 0x6F, 0xA5, 0x70, 0x77, 0x61, ...). EMV ist stark verschachtelt.
-    if (data[tagStart] & 0x20) {
-      const int sub = findTag(&data[valPos], len, tag, depth + 1);
-      if (sub != -1) return valPos + sub;
-    }
-
-    i = valPos + len;   // valPos > i und len >= 0 -> garantierter Fortschritt
-  }
-  return -1;
-}
-
-void NfcModule::printHex(const uint8_t* data, uint8_t length) {
-  for (uint8_t i = 0; i < length; ++i) {
-    if (data[i] < 0x10) Serial.print('0');
-    Serial.print(data[i], HEX);
-    if (i + 1 < length) Serial.print(' ');
-  }
 }
 
 void NfcModule::decodeHint(uint32_t tag, const uint8_t* val, int len, int depth) {
@@ -987,7 +830,7 @@ void NfcModule::decodeHint(uint32_t tag, const uint8_t* val, int len, int depth)
   }
   if (tag == 0x57 || tag == 0x9F6B) {            // Track 2 Equivalent Data
     String pan, exp;
-    parseTrack2(val, static_cast<uint8_t>(len), pan, exp);
+    Tlv::parseTrack2(val, static_cast<uint8_t>(len), pan, exp);
     Serial.print("-> Track 2 (PAN: ");
     Serial.print(pan);
     Serial.print(", Ablauf JJ/MM: ");
@@ -1508,7 +1351,7 @@ void NfcModule::runEmulation() {
     Serial.print("[emu] <- APDU (");
     Serial.print(n);
     Serial.print(" B): ");
-    printHex(capdu, (n > 16) ? 16 : static_cast<uint8_t>(n));
+    Tlv::printHex(capdu, (n > 16) ? 16 : static_cast<uint8_t>(n));
     Serial.println();
 
     int outLen = buildEmuResponse(capdu, n, resp, sizeof(resp));
