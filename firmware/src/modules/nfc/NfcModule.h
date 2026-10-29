@@ -5,7 +5,7 @@
 #include <PN532_I2C.h>
 #include <vector>
 #include "EmvTypes.h"
-#include "EmvDump.h"
+#include "EmvReader.h"
 
 class NfcModule : public Module {
 public:
@@ -25,7 +25,7 @@ private:
 
   PN532_I2C _transport;
   PN532 _reader;
-  EmvDump _dump{_reader};
+  EmvReader _emvReader{_reader};
 
   bool _ok = false;
   bool _readPending = true;
@@ -34,30 +34,6 @@ private:
 
   // Letzte ausgelesene Kartendaten
   CardData _card;
-
-  void processCard();
-  bool selectPpse(std::vector<EmvAid>& aidList);
-  // Selektiert eine AID. Bei Erfolg wird das FCI (fuer PDOL-Auswertung)
-  // in outFci/outFciLen zurueckgegeben, sofern nicht nullptr.
-  bool selectAid(const uint8_t* aid, uint8_t aidLen,
-                 uint8_t* outFci = nullptr, uint8_t* outFciLen = nullptr);
-  // GPO. Das FCI der zuvor selektierten AID wird uebergeben, damit ein evtl.
-  // gefordertes PDOL (Tag 9F38) korrekt gefuellt werden kann.
-  // Rueckgabe: true, wenn ein AFL gefunden wurde. outGpo/outGpoLen enthalten
-  // bei Erfolg (SW 9000) die rohen GPO-Nutzdaten - bei qVSDC-Karten stehen
-  // dort Track 2 / PAN direkt drin (auch ohne AFL).
-  bool tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
-                               uint8_t* outAfl, uint8_t& outAflLen,
-                               uint8_t* outGpo, uint8_t& outGpoLen);
-  bool readCardRecords(const uint8_t* afl, uint8_t aflLen);
-  bool parseRecordData(CardData& out, const uint8_t* data, uint8_t dataLen);
-
-  // Baut aus der PDOL-Tagliste (Tag+Laenge) die GPO-Datenwerte. Liefert die
-  // Gesamtlaenge der geschriebenen Werte, begrenzt durch outCap (Kartendaten
-  // sind nicht vertrauenswuerdig). Terminalwerte sind Standard/Dummy; die
-  // Karte prueft primaer die Laengen.
-  static uint8_t buildPdolData(const uint8_t* pdol, uint8_t pdolLen,
-                               uint8_t* out, size_t outCap);
 
   // ------------------------------------------------------------------------
   //  Karten-Emulation (Capture & Replay)
