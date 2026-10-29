@@ -33,19 +33,7 @@ private:
   unsigned long _lastPollMs = 0;
 
   // Letzte ausgelesene Kartendaten
-  String _lastUid = "";
-  String _lastCardNumber = "";
-  String _lastExpiry = "";
-  String _lastAid = "";
-  String _lastCardType = "";
-  String _lastCardholder = "";
-  String _lastCountryCode = "";
-  String _lastCurrencyCode = "";
-  String _lastEffectiveDate = "";
-  String _lastPsn = "";
-  String _lastServiceCode = "";
-  String _lastAip = "";
-  bool _cardReadSuccess = false;
+  CardData _card;
 
   void processCard();
   bool selectPpse(std::vector<EmvAid>& aidList);
@@ -62,7 +50,7 @@ private:
                                uint8_t* outAfl, uint8_t& outAflLen,
                                uint8_t* outGpo, uint8_t& outGpoLen);
   bool readCardRecords(const uint8_t* afl, uint8_t aflLen);
-  bool parseRecordData(const uint8_t* data, uint8_t dataLen);
+  bool parseRecordData(CardData& out, const uint8_t* data, uint8_t dataLen);
 
   // Baut aus der PDOL-Tagliste (Tag+Laenge) die GPO-Datenwerte. Liefert die
   // Gesamtlaenge der geschriebenen Werte, begrenzt durch outCap (Kartendaten
@@ -78,31 +66,13 @@ private:
   //  "emulate" unveraendert gegenueber einem Leser (Handy-App) zurueckgespielt.
   //  WICHTIG: nur statische Anzeigedaten. KEINE Zahlung moeglich - das
   //  dynamische EMV-Kryptogramm steckt im Secure Element und ist nicht lesbar.
-  static constexpr uint8_t EmuMaxRecords = 8;
-  static constexpr uint8_t EmuBlobCap = 255;  // tgSetData-Laenge ist uint8_t
-
-  struct EmuRecord {
-    uint8_t sfi;
-    uint8_t rec;
-    uint8_t len;
-    uint8_t data[EmuBlobCap];
-  };
-
   bool _emulating = false;         // Emulationsmodus aktiv (statt Lesen)?
-  bool _emuValid = false;          // Liegt ein brauchbarer Mitschnitt vor?
   bool _emuWaitLogged = false;     // "warte auf Leser" nur einmal melden
   bool _needReaderReinit = false;  // nach Emulation PN532 fuer Lesen neu konfig.
 
   uint8_t _emuUid[4] = {0x08, 0x00, 0x00, 0x00};
-  uint8_t _emuPpse[EmuBlobCap]; uint8_t _emuPpseLen = 0;
-  uint8_t _emuAid[16];          uint8_t _emuAidLen = 0;
-  uint8_t _emuFci[EmuBlobCap];  uint8_t _emuFciLen = 0;
-  uint8_t _emuGpo[EmuBlobCap];  uint8_t _emuGpoLen = 0;
-  EmuRecord _emuRecords[EmuMaxRecords]; uint8_t _emuRecordCount = 0;
+  EmvCapture _capture;
 
-  void resetEmuCapture();
-  void captureBlob(uint8_t* dst, uint8_t& dstLen, const uint8_t* src, int srcLen);
-  void captureRecord(uint8_t sfi, uint8_t rec, const uint8_t* data, int len);
   void runEmulation();
   // Baut aus einer empfangenen C-APDU die Antwort (inkl. SW1 SW2) in out.
   // Rueckgabe: Antwortlaenge (<= outCap, immer >= 2) oder 0 bei Fehler.

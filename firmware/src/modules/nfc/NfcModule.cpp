@@ -113,11 +113,11 @@ void NfcModule::update() {
   for (uint8_t i = 0; i < uidLength; ++i) {
     snprintf(&uidStr[i * 2], 3, "%02X", uid[i]);
   }
-  _lastUid = String(uidStr);
+  _card.uid = String(uidStr);
 
   Serial.println("\n====================================");
   Serial.print("[INFO] Kontaktlose Karte erkannt! UID: ");
-  Serial.println(_lastUid);
+  Serial.println(_card.uid);
 
   processCard();
 
@@ -125,19 +125,21 @@ void NfcModule::update() {
 }
 
 void NfcModule::processCard() {
-  _cardReadSuccess = false;
-  resetEmuCapture();  // Mitschnitt fuer die Emulation frisch beginnen
-  _lastAid = "";
-  _lastCardNumber = "";
-  _lastExpiry = "";
-  _lastCardType = "";
-  _lastCardholder = "";
-  _lastCountryCode = "";
-  _lastCurrencyCode = "";
-  _lastEffectiveDate = "";
-  _lastPsn = "";
-  _lastServiceCode = "";
-  _lastAip = "";
+  // _card.uid wurde bereits in update() gesetzt - NICHT per _card.clear()
+  // ueberschreiben (Original-Verhalten liess _lastUid hier unangetastet).
+  _card.readSuccess = false;
+  _capture.reset();  // Mitschnitt fuer die Emulation frisch beginnen
+  _card.aid = "";
+  _card.cardNumber = "";
+  _card.expiry = "";
+  _card.cardType = "";
+  _card.cardholder = "";
+  _card.countryCode = "";
+  _card.currencyCode = "";
+  _card.effectiveDate = "";
+  _card.psn = "";
+  _card.serviceCode = "";
+  _card.aip = "";
 
   std::vector<EmvAid> aidList;
 
@@ -185,15 +187,15 @@ void NfcModule::processCard() {
     for (int k = 0; k < item.len && (k * 2 + 1) < sizeof(aidHex); ++k) {
       snprintf(&aidHex[k * 2], 3, "%02X", item.aid[k]);
     }
-    _lastAid = String(aidHex);
+    _card.aid = String(aidHex);
     if (strlen(item.label) > 0) {
-      _lastCardType = String(item.label);
+      _card.cardType = String(item.label);
     }
 
     // Fuer die Emulation: AID + rohes FCI dieser Applikation mitschneiden.
-    _emuAidLen = (item.len <= sizeof(_emuAid)) ? item.len : sizeof(_emuAid);
-    memcpy(_emuAid, item.aid, _emuAidLen);
-    captureBlob(_emuFci, _emuFciLen, fci, fciLen);
+    _capture.aidLen = (item.len <= sizeof(_capture.aid)) ? item.len : sizeof(_capture.aid);
+    memcpy(_capture.aid, item.aid, _capture.aidLen);
+    _capture.putBlob(_capture.fci, _capture.fciLen, fci, fciLen);
 
     // 3. GET PROCESSING OPTIONS (GPO) senden
     uint8_t afl[64] = {0};
@@ -204,7 +206,7 @@ void NfcModule::processCard() {
 
     // Fuer die Emulation: rohe GPO-Antwort mitschneiden (enthaelt bei qVSDC
     // bereits Track 2 / PAN, sonst AIP + AFL).
-    if (gpoLen > 0) captureBlob(_emuGpo, _emuGpoLen, gpo, gpoLen);
+    if (gpoLen > 0) _capture.putBlob(_capture.gpo, _capture.gpoLen, gpo, gpoLen);
 
     // 4. Kartendaten gewinnen.
     //    a) Viele kontaktlose Karten (qVSDC, z. B. Visa) liefern Track 2 / PAN
@@ -212,7 +214,7 @@ void NfcModule::processCard() {
     //       massgebliche Quelle - zuerst dort suchen.
     bool gotData = false;
     if (gpoLen > 0) {
-      gotData = parseRecordData(gpo, gpoLen);
+      gotData = parseRecordData(_card, gpo, gpoLen);
     }
     //    b) Sonst klassisch ueber das AFL die Records lesen.
     if (!gotData) {
@@ -220,8 +222,8 @@ void NfcModule::processCard() {
     }
 
     if (gotData) {
-      _cardReadSuccess = true;
-      _emuValid = true;  // Mitschnitt ist brauchbar -> Emulation moeglich
+      _card.readSuccess = true;
+      _capture.valid = true;  // Mitschnitt ist brauchbar -> Emulation moeglich
       Serial.println("[SUCCESS] Kartendaten erfolgreich gelesen!");
       // Vollstaendiger Dump aller ueber NFC lesbaren Daten dieser Applikation.
       _dump.dumpAll(fci, fciLen, gpo, gpoLen, afl, aflLen, aflFound);
@@ -231,7 +233,7 @@ void NfcModule::processCard() {
     }
   }
 
-  if (!_cardReadSuccess) {
+  if (!_card.readSuccess) {
     Serial.println("[FEHLER] Auslesen der Kartendaten auf allen verfuegbaren AIDs fehlgeschlagen.");
   }
 }
@@ -272,7 +274,7 @@ bool NfcModule::selectPpse(std::vector<EmvAid>& aidList) {
 
   Serial.println("[EMV] PPSE erfolgreich beantwortet. Extrahiere AIDs...");
   // Fuer die Emulation: rohe PPSE-Antwort (ohne SW) mitschneiden.
-  captureBlob(_emuPpse, _emuPpseLen, response, responseLength - 2);
+  _capture.putBlob(_capture.ppse, _capture.ppseLen, response, responseLength - 2);
   Tlv::extractAllAids(response, responseLength - 2, aidList);
   return !aidList.empty();
 }
@@ -511,8 +513,8 @@ bool NfcModule::readCardRecords(const uint8_t* afl, uint8_t aflLen) {
         uint8_t responseLength = sizeof(response);
         bool success = _reader.inDataExchange(readRecordCmd, sizeof(readRecordCmd), response, &responseLength);
         if (success && responseLength >= 2 && response[responseLength - 2] == 0x90 && response[responseLength - 1] == 0x00) {
-          captureRecord(sfi, rec, response, responseLength - 2);  // fuer Emulation
-          if (parseRecordData(response, responseLength - 2)) {
+          _capture.putRecord(sfi, rec, response, responseLength - 2);  // fuer Emulation
+          if (parseRecordData(_card, response, responseLength - 2)) {
             foundData = true;
           }
         }
@@ -532,8 +534,8 @@ bool NfcModule::readCardRecords(const uint8_t* afl, uint8_t aflLen) {
       uint8_t responseLength = sizeof(response);
       bool success = _reader.inDataExchange(readRecordCmd, sizeof(readRecordCmd), response, &responseLength);
       if (success && responseLength >= 2 && response[responseLength - 2] == 0x90 && response[responseLength - 1] == 0x00) {
-        captureRecord(sfi, rec, response, responseLength - 2);  // fuer Emulation
-        if (parseRecordData(response, responseLength - 2)) {
+        _capture.putRecord(sfi, rec, response, responseLength - 2);  // fuer Emulation
+        if (parseRecordData(_card, response, responseLength - 2)) {
           return true;
         }
       }
@@ -543,7 +545,7 @@ bool NfcModule::readCardRecords(const uint8_t* afl, uint8_t aflLen) {
   return foundData;
 }
 
-bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
+bool NfcModule::parseRecordData(CardData& out, const uint8_t* data, uint8_t dataLen) {
   bool parsedAnything = false;
 
   // 1. Tag 0x5A: PAN (Primäre Kontonummer)
@@ -559,7 +561,7 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
       if (lowNibble <= 9) panStr += String(lowNibble);
     }
     if (panStr.length() >= 12) {
-      _lastCardNumber = panStr;
+      out.cardNumber = panStr;
       parsedAnything = true;
       Serial.print(">> KARTENNUMMER (Tag 0x5A): ");
       for (size_t i = 0; i < panStr.length(); ++i) {
@@ -578,10 +580,10 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     snprintf(expStr, sizeof(expStr), "%02d/%02d",
              ((expData[0] >> 4) & 0x0F) * 10 + (expData[0] & 0x0F),
              ((expData[1] >> 4) & 0x0F) * 10 + (expData[1] & 0x0F));
-    _lastExpiry = String(expStr);
+    out.expiry = String(expStr);
     parsedAnything = true;
     Serial.print(">> ABLAUFDATUM (Tag 0x5F24): ");
-    Serial.println(_lastExpiry);
+    Serial.println(out.expiry);
   }
 
   // 3. Tag 0x57: Track 2 Equivalent Data (oft vorhanden, wenn 0x5A nicht direkt existiert)
@@ -592,8 +594,8 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     String tr2Exp = "";
     Tlv::parseTrack2(&data[tr2Idx + 2], tr2Len, tr2Pan, tr2Exp);
 
-    if (_lastCardNumber.length() == 0 && tr2Pan.length() >= 12) {
-      _lastCardNumber = tr2Pan;
+    if (out.cardNumber.length() == 0 && tr2Pan.length() >= 12) {
+      out.cardNumber = tr2Pan;
       parsedAnything = true;
       Serial.print(">> KARTENNUMMER (Track 2): ");
       for (size_t i = 0; i < tr2Pan.length(); ++i) {
@@ -602,11 +604,11 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
       }
       Serial.println();
     }
-    if (_lastExpiry.length() == 0 && tr2Exp.length() > 0) {
-      _lastExpiry = tr2Exp;
+    if (out.expiry.length() == 0 && tr2Exp.length() > 0) {
+      out.expiry = tr2Exp;
       parsedAnything = true;
       Serial.print(">> ABLAUFDATUM (Track 2): ");
-      Serial.println(_lastExpiry);
+      Serial.println(out.expiry);
     }
   }
 
@@ -618,12 +620,12 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     char nameBuf[33] = {0};
     uint8_t copyLen = (nameLen < sizeof(nameBuf) - 1) ? nameLen : (sizeof(nameBuf) - 1);
     memcpy(nameBuf, namePtr, copyLen);
-    _lastCardholder = String(nameBuf);
-    _lastCardholder.trim();
-    if (_lastCardholder.length() > 0) {
+    out.cardholder = String(nameBuf);
+    out.cardholder.trim();
+    if (out.cardholder.length() > 0) {
       parsedAnything = true;
       Serial.print(">> KARTENINHABER (Tag 0x5F20): ");
-      Serial.println(_lastCardholder);
+      Serial.println(out.cardholder);
     }
   }
 
@@ -633,13 +635,13 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     const uint8_t* ccData = &data[ccIdx + 3];
     char ccBuf[8];
     snprintf(ccBuf, sizeof(ccBuf), "%02X%02X", ccData[0], ccData[1]);
-    _lastCountryCode = String(ccBuf);
+    out.countryCode = String(ccBuf);
     parsedAnything = true;
     Serial.print(">> LAENDER-CODE (Tag 0x5F28): ");
-    Serial.print(_lastCountryCode);
-    if (_lastCountryCode == "0276") Serial.print(" (Deutschland)");
-    else if (_lastCountryCode == "0040") Serial.print(" (Oesterreich)");
-    else if (_lastCountryCode == "0756") Serial.print(" (Schweiz)");
+    Serial.print(out.countryCode);
+    if (out.countryCode == "0276") Serial.print(" (Deutschland)");
+    else if (out.countryCode == "0040") Serial.print(" (Oesterreich)");
+    else if (out.countryCode == "0756") Serial.print(" (Schweiz)");
     Serial.println();
   }
 
@@ -649,10 +651,10 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     const uint8_t* effData = &data[effIdx + 3];
     char effBuf[16];
     snprintf(effBuf, sizeof(effBuf), "%02X/%02X/%02X", effData[0], effData[1], effData[2]);
-    _lastEffectiveDate = String(effBuf);
+    out.effectiveDate = String(effBuf);
     parsedAnything = true;
     Serial.print(">> GUELTIG AB (Tag 0x5F25 JJ/MM/TT): ");
-    Serial.println(_lastEffectiveDate);
+    Serial.println(out.effectiveDate);
   }
 
   // 7. Tag 0x5F30: Service Code (3 Ziffern, Track 2 Service Attributes)
@@ -661,10 +663,10 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     const uint8_t* scData = &data[scIdx + 3];
     char scBuf[8];
     snprintf(scBuf, sizeof(scBuf), "%02X%01X", scData[0], (scData[1] >> 4) & 0x0F);
-    _lastServiceCode = String(scBuf);
+    out.serviceCode = String(scBuf);
     parsedAnything = true;
     Serial.print(">> SERVICE CODE (Tag 0x5F30): ");
-    Serial.println(_lastServiceCode);
+    Serial.println(out.serviceCode);
   }
 
   // 8. Tag 0x5F34: PAN Sequence Number (PSN, 1 Byte)
@@ -673,10 +675,10 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     uint8_t psnVal = data[psnIdx + 3];
     char psnBuf[6];
     snprintf(psnBuf, sizeof(psnBuf), "%02X", psnVal);
-    _lastPsn = String(psnBuf);
+    out.psn = String(psnBuf);
     parsedAnything = true;
     Serial.print(">> KARTENFOLGENUMMER / PSN (Tag 0x5F34): ");
-    Serial.println(_lastPsn);
+    Serial.println(out.psn);
   }
 
   // 9. Tag 0x9F42: Application Currency Code (ISO 4217, z.B. 0978 = EUR)
@@ -685,14 +687,14 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     const uint8_t* currData = &data[currIdx + 3];
     char currBuf[8];
     snprintf(currBuf, sizeof(currBuf), "%02X%02X", currData[0], currData[1]);
-    _lastCurrencyCode = String(currBuf);
+    out.currencyCode = String(currBuf);
     parsedAnything = true;
     Serial.print(">> WAEHRUNGS-CODE (Tag 0x9F42): ");
-    Serial.print(_lastCurrencyCode);
-    if (_lastCurrencyCode == "0978") Serial.print(" (EUR)");
-    else if (_lastCurrencyCode == "0840") Serial.print(" (USD)");
-    else if (_lastCurrencyCode == "0826") Serial.print(" (GBP)");
-    else if (_lastCurrencyCode == "0756") Serial.print(" (CHF)");
+    Serial.print(out.currencyCode);
+    if (out.currencyCode == "0978") Serial.print(" (EUR)");
+    else if (out.currencyCode == "0840") Serial.print(" (USD)");
+    else if (out.currencyCode == "0826") Serial.print(" (GBP)");
+    else if (out.currencyCode == "0756") Serial.print(" (CHF)");
     Serial.println();
   }
 
@@ -703,10 +705,10 @@ bool NfcModule::parseRecordData(const uint8_t* data, uint8_t dataLen) {
     uint8_t aip2 = data[aipIdx + 3];
     char aipBuf[16];
     snprintf(aipBuf, sizeof(aipBuf), "%02X%02X", aip1, aip2);
-    _lastAip = String(aipBuf);
+    out.aip = String(aipBuf);
     parsedAnything = true;
     Serial.print(">> AIP (Tag 0x82): 0x");
-    Serial.println(_lastAip);
+    Serial.println(out.aip);
     if (aip1 & 0x40) Serial.println("    [+] SDA (Static Data Authentication)");
     if (aip1 & 0x20) Serial.println("    [+] DDA (Dynamic Data Authentication)");
     if (aip1 & 0x10) Serial.println("    [+] Cardholder Verification");
@@ -749,21 +751,21 @@ void NfcModule::statusJson(JsonObject obj) {
   obj["ok"] = _ok;
   obj["ready"] = _ok;
   obj["readPending"] = _readPending;
-  obj["lastUid"] = _lastUid;
-  obj["lastAid"] = _lastAid;
-  obj["lastCardType"] = _lastCardType;
-  obj["lastCardNumber"] = _lastCardNumber;
-  obj["lastExpiry"] = _lastExpiry;
-  obj["lastCardholder"] = _lastCardholder;
-  obj["lastCountryCode"] = _lastCountryCode;
-  obj["lastCurrencyCode"] = _lastCurrencyCode;
-  obj["lastEffectiveDate"] = _lastEffectiveDate;
-  obj["lastPsn"] = _lastPsn;
-  obj["lastServiceCode"] = _lastServiceCode;
-  obj["lastAip"] = _lastAip;
-  obj["cardReadSuccess"] = _cardReadSuccess;
+  obj["lastUid"] = _card.uid;
+  obj["lastAid"] = _card.aid;
+  obj["lastCardType"] = _card.cardType;
+  obj["lastCardNumber"] = _card.cardNumber;
+  obj["lastExpiry"] = _card.expiry;
+  obj["lastCardholder"] = _card.cardholder;
+  obj["lastCountryCode"] = _card.countryCode;
+  obj["lastCurrencyCode"] = _card.currencyCode;
+  obj["lastEffectiveDate"] = _card.effectiveDate;
+  obj["lastPsn"] = _card.psn;
+  obj["lastServiceCode"] = _card.serviceCode;
+  obj["lastAip"] = _card.aip;
+  obj["cardReadSuccess"] = _card.readSuccess;
   obj["emulating"] = _emulating;   // Emulationsmodus aktiv?
-  obj["emuReady"] = _emuValid;     // liegt ein Mitschnitt zum Zuruckspielen vor?
+  obj["emuReady"] = _capture.valid;  // liegt ein Mitschnitt zum Zuruckspielen vor?
 }
 
 bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
@@ -782,7 +784,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
   }
 
   if (action == "emulate") {
-    if (!_emuValid) {
+    if (!_capture.valid) {
       Serial.println("[emu] Kein Mitschnitt vorhanden - zuerst eine Karte lesen "
                      "(Befehl 'read'), dann 'emulate'.");
       return false;
@@ -803,19 +805,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
   }
 
   if (action == "clear") {
-    _lastUid = "";
-    _lastAid = "";
-    _lastCardType = "";
-    _lastCardNumber = "";
-    _lastExpiry = "";
-    _lastCardholder = "";
-    _lastCountryCode = "";
-    _lastCurrencyCode = "";
-    _lastEffectiveDate = "";
-    _lastPsn = "";
-    _lastServiceCode = "";
-    _lastAip = "";
-    _cardReadSuccess = false;
+    _card.clear();
     return true;
   }
 
@@ -826,49 +816,18 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
 //  Karten-Emulation (Capture & Replay)
 // ============================================================================
 
-void NfcModule::resetEmuCapture() {
-  _emuValid = false;
-  _emuPpseLen = 0;
-  _emuAidLen = 0;
-  _emuFciLen = 0;
-  _emuGpoLen = 0;
-  _emuRecordCount = 0;
-}
-
-void NfcModule::captureBlob(uint8_t* dst, uint8_t& dstLen, const uint8_t* src, int srcLen) {
-  if (srcLen < 0) srcLen = 0;
-  if (srcLen > EmuBlobCap) srcLen = EmuBlobCap;  // Kartendaten nie ungeprueft
-  memcpy(dst, src, srcLen);
-  dstLen = static_cast<uint8_t>(srcLen);
-}
-
-void NfcModule::captureRecord(uint8_t sfi, uint8_t rec, const uint8_t* data, int len) {
-  if (len <= 0) return;
-  if (len > EmuBlobCap) len = EmuBlobCap;
-  // Schon vorhanden? (z. B. AFL und Fallback-Schleife treffen denselben Record)
-  for (uint8_t i = 0; i < _emuRecordCount; ++i) {
-    if (_emuRecords[i].sfi == sfi && _emuRecords[i].rec == rec) return;
-  }
-  if (_emuRecordCount >= EmuMaxRecords) return;  // Puffer voll -> ignorieren
-  EmuRecord& r = _emuRecords[_emuRecordCount++];
-  r.sfi = sfi;
-  r.rec = rec;
-  r.len = static_cast<uint8_t>(len);
-  memcpy(r.data, data, len);
-}
-
 uint8_t NfcModule::buildSynthPpse(uint8_t* out, uint8_t outCap) {
   // Minimale PPSE-FCI, die genau unsere eine AID anpreist:
   //   6F L1  84 0E <"2PAY.SYS.DDC01">  A5 L2  BF0C L3  61 L4  4F <len> <AID>  87 01 01
-  if (_emuAidLen == 0 || _emuAidLen > 16) return 0;
+  if (_capture.aidLen == 0 || _capture.aidLen > 16) return 0;
   static const uint8_t ppseName[14] = {
       '2','P','A','Y','.','S','Y','S','.','D','D','C','0','1'};
 
   uint8_t rec61[32];  // 61-Template-Inhalt: 4F <len> <AID> 87 01 01
   uint8_t n = 0;
   rec61[n++] = 0x4F;
-  rec61[n++] = _emuAidLen;
-  memcpy(&rec61[n], _emuAid, _emuAidLen); n += _emuAidLen;
+  rec61[n++] = _capture.aidLen;
+  memcpy(&rec61[n], _capture.aid, _capture.aidLen); n += _capture.aidLen;
   rec61[n++] = 0x87; rec61[n++] = 0x01; rec61[n++] = 0x01;
 
   uint8_t bf0c[40];   // BF0C-Inhalt: 61 <len> <rec61>
@@ -919,20 +878,20 @@ int NfcModule::buildEmuResponse(const uint8_t* c, int clen, uint8_t* out, int ou
     const uint8_t* df = &c[5];
     static const char* kPpse = "2PAY.SYS.DDC01";
     if (lc == 14 && clen >= 5 + 14 && memcmp(df, kPpse, 14) == 0) {
-      if (_emuPpseLen > 0) return emit(_emuPpse, _emuPpseLen, 0x90, 0x00);
+      if (_capture.ppseLen > 0) return emit(_capture.ppse, _capture.ppseLen, 0x90, 0x00);
       uint8_t synth[96];
       uint8_t sl = buildSynthPpse(synth, sizeof(synth));
       if (sl > 0) return emit(synth, sl, 0x90, 0x00);
       return emit(nullptr, 0, 0x6A, 0x82);  // Datei nicht gefunden
     }
     // SELECT AID -> wir emulieren genau eine Applikation: FCI zurueckgeben.
-    if (_emuFciLen > 0) return emit(_emuFci, _emuFciLen, 0x90, 0x00);
+    if (_capture.fciLen > 0) return emit(_capture.fci, _capture.fciLen, 0x90, 0x00);
     return emit(nullptr, 0, 0x6A, 0x82);
   }
 
   // GET PROCESSING OPTIONS (80 A8 ..)
   if (c[0] == 0x80 && ins == 0xA8) {
-    if (_emuGpoLen > 0) return emit(_emuGpo, _emuGpoLen, 0x90, 0x00);
+    if (_capture.gpoLen > 0) return emit(_capture.gpo, _capture.gpoLen, 0x90, 0x00);
     return emit(nullptr, 0, 0x6A, 0x81);  // Funktion nicht unterstuetzt
   }
 
@@ -940,9 +899,9 @@ int NfcModule::buildEmuResponse(const uint8_t* c, int clen, uint8_t* out, int ou
   if (ins == 0xB2) {
     const uint8_t rec = p1;
     const uint8_t sfi = (p2 >> 3) & 0x1F;
-    for (uint8_t i = 0; i < _emuRecordCount; ++i) {
-      if (_emuRecords[i].sfi == sfi && _emuRecords[i].rec == rec) {
-        return emit(_emuRecords[i].data, _emuRecords[i].len, 0x90, 0x00);
+    for (uint8_t i = 0; i < _capture.recordCount; ++i) {
+      if (_capture.records[i].sfi == sfi && _capture.records[i].rec == rec) {
+        return emit(_capture.records[i].data, _capture.records[i].len, 0x90, 0x00);
       }
     }
     return emit(nullptr, 0, 0x6A, 0x83);  // Record nicht gefunden
