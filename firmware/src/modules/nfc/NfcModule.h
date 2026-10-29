@@ -26,10 +26,6 @@ private:
   static constexpr uint8_t MaxUidLength = 7;
   // APDU-Antwortpuffer. Bewusst 255 (NICHT 256): Die PN532-Library nimmt die
   // Pufferkapazitaet als uint8_t entgegen (readResponse(buf, uint8_t len, ...)).
-  // Bei 256 wird "uint8_t responseLength = sizeof(response)" still auf 0
-  // verengt -> inDataExchange() uebergibt Kapazitaet 0 -> jede APDU-Antwort
-  // (PPSE, SELECT AID, GPO, READ RECORD) scheitert mit "keine Antwort".
-  // 255 ist zugleich die API-Obergrenze und fuer EMV-Einzelframes ausreichend.
   static constexpr size_t MaxBufferLength = 255;
 
   PN532_I2C _transport;
@@ -46,6 +42,13 @@ private:
   String _lastExpiry = "";
   String _lastAid = "";
   String _lastCardType = "";
+  String _lastCardholder = "";
+  String _lastCountryCode = "";
+  String _lastCurrencyCode = "";
+  String _lastEffectiveDate = "";
+  String _lastPsn = "";
+  String _lastServiceCode = "";
+  String _lastAip = "";
   bool _cardReadSuccess = false;
 
   void processCard();
@@ -78,4 +81,63 @@ private:
   static void extractAllAids(const uint8_t* data, int dataLen, std::vector<EmvAid>& aidList);
   static void parseTrack2(const uint8_t* track2Data, uint8_t track2Len, String& outPan, String& outExp);
   static void printHex(const uint8_t* data, uint8_t length);
+
+  // --- Vollstaendiger TLV-Dump: alle ueber NFC lesbaren Kartendaten ---
+  // Dumpt FCI + GPO-Antwort + AFL-Records + GET-DATA-Einzel-Tags annotiert.
+  void dumpAllCardData(const uint8_t* fci, uint8_t fciLen,
+                       const uint8_t* gpo, uint8_t gpoLen,
+                       const uint8_t* afl, uint8_t aflLen, bool aflValid);
+  // Rekursiver TLV-Walker: gibt jeden Tag mit Name/Laenge/Wert aus und steigt
+  // in konstruierte Templates ab. depth = Einrueckung + Rekursionsschutz.
+  void dumpTlv(const uint8_t* data, int dataLen, int depth);
+  // Klartext-Dekodierung fuer ausgewaehlte Primitiv-Tags (PAN, Track 2, Datum).
+  void decodeHint(uint32_t tag, const uint8_t* val, int len, int depth);
+  // Liest alle im AFL referenzierten Records und dumpt sie.
+  void readAndDumpRecords(const uint8_t* afl, uint8_t aflLen);
+  // GET DATA (80 CA) fuer gaengige Einzel-Tags (ATC, PIN-Zaehler, ...).
+  void dumpGetDataTags();
+  bool getDataTag(uint32_t tag, uint8_t* out, uint8_t& outLen);
+
+  static void printTagHex(uint32_t tag);
+  static const char* emvTagName(uint32_t tag);
+
+  // ------------------------------------------------------------------------
+  //  Karten-Emulation (Capture & Replay)
+  // ------------------------------------------------------------------------
+  //  Beim echten Lesen werden die rohen Kartenantworten mitgeschnitten und bei
+  //  "emulate" unveraendert gegenueber einem Leser (Handy-App) zurueckgespielt.
+  //  WICHTIG: nur statische Anzeigedaten. KEINE Zahlung moeglich - das
+  //  dynamische EMV-Kryptogramm steckt im Secure Element und ist nicht lesbar.
+  static constexpr uint8_t EmuMaxRecords = 8;
+  static constexpr uint8_t EmuBlobCap = 255;  // tgSetData-Laenge ist uint8_t
+
+  struct EmuRecord {
+    uint8_t sfi;
+    uint8_t rec;
+    uint8_t len;
+    uint8_t data[EmuBlobCap];
+  };
+
+  bool _emulating = false;         // Emulationsmodus aktiv (statt Lesen)?
+  bool _emuValid = false;          // Liegt ein brauchbarer Mitschnitt vor?
+  bool _emuWaitLogged = false;     // "warte auf Leser" nur einmal melden
+  bool _needReaderReinit = false;  // nach Emulation PN532 fuer Lesen neu konfig.
+
+  uint8_t _emuUid[4] = {0x08, 0x00, 0x00, 0x00};
+  uint8_t _emuPpse[EmuBlobCap]; uint8_t _emuPpseLen = 0;
+  uint8_t _emuAid[16];          uint8_t _emuAidLen = 0;
+  uint8_t _emuFci[EmuBlobCap];  uint8_t _emuFciLen = 0;
+  uint8_t _emuGpo[EmuBlobCap];  uint8_t _emuGpoLen = 0;
+  EmuRecord _emuRecords[EmuMaxRecords]; uint8_t _emuRecordCount = 0;
+
+  void resetEmuCapture();
+  void captureBlob(uint8_t* dst, uint8_t& dstLen, const uint8_t* src, int srcLen);
+  void captureRecord(uint8_t sfi, uint8_t rec, const uint8_t* data, int len);
+  void runEmulation();
+  // Baut aus einer empfangenen C-APDU die Antwort (inkl. SW1 SW2) in out.
+  // Rueckgabe: Antwortlaenge (<= outCap, immer >= 2) oder 0 bei Fehler.
+  int  buildEmuResponse(const uint8_t* capdu, int clen, uint8_t* out, int outCap);
+  // Synthetisiert eine minimale PPSE-FCI aus der gespeicherten AID, falls beim
+  // Lesen keine echte PPSE-Antwort anfiel (Fallback-AID-Pfad).
+  uint8_t buildSynthPpse(uint8_t* out, uint8_t outCap);
 };

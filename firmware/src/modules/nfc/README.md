@@ -41,13 +41,45 @@ einen anderen Leser.
 
 | action | params | Wirkung |
 |---|---|---|
-| `read` | – | einen neuen Scan-Zyklus sofort anstoßen |
+| `read` | – | einen neuen Scan-Zyklus sofort anstoßen (beendet ggf. Emulation) |
+| `emulate` | – | Karten-Emulation starten: zuletzt gelesene Karte gegenüber einem Leser (Handy-App) zurückspielen. Setzt einen vorherigen erfolgreichen `read` voraus. |
+| `stop` | – | Emulation beenden, zurück in den Lesebetrieb |
+| `clear` | – | zuletzt gelesene Kartendaten verwerfen |
 
 ## Status (`statusJson`)
 
 ```json
-{ "ok": true, "ready": true }
+{ "ok": true, "ready": true, "emulating": false, "emuReady": false }
 ```
+
+`emuReady` = ein Mitschnitt zum Zurückspielen liegt vor; `emulating` = Emulation
+gerade aktiv.
+
+## Karten-Emulation (Capture & Replay)
+
+Der PN532 kann die zuletzt gelesenen Kartendaten so zurückspielen, dass eine
+NFC-Scanner-/EMV-Reader-App am Handy **dieselben Werte** anzeigt wie bei der echten
+Karte.
+
+- **Prinzip:** Beim `read` werden die **rohen** Kartenantworten (PPSE, FCI, GPO,
+  AFL-Records) mitgeschnitten. Bei `emulate` gibt sich der PN532 als
+  ISO14443-4-Karte (`tgInitAsTarget`, SAK 0x20) aus und beantwortet die
+  Standard-APDU-Folge `SELECT PPSE → SELECT AID → GPO → READ RECORD` mit genau
+  diesen Bytes. Dadurch ist die Anzeige in der App identisch.
+- **Ablauf:** echte Karte an den Leser → `read` → Karte entfernen → `emulate` →
+  Handy an den PN532 halten. `stop` kehrt in den Lesebetrieb zurück.
+- **Grenze (wichtig):** Nur **statische Anzeigedaten**. Eine **Zahlung ist nicht
+  möglich** — das pro Transaktion dynamisch erzeugte EMV-Kryptogramm (ARQC) steckt
+  im Secure Element der Karte und ist über NFC nicht lesbar, also auch nicht
+  klonbar. Ein zahlungsprüfendes Terminal lehnt die Emulation ab.
+- **Timing:** `emulate` lässt `update()` je Zyklus bis zu `NFC_EMU_INIT_TIMEOUT_MS`
+  (config.h) auf einen Leser warten — in dieser Zeit blockiert der Loop. Nur im
+  Emulationsmodus relevant.
+- ⚠️ **Hardware-Status:** Die Logik ist mit der echten Toolchain übersetzt, aber
+  die ISO-DEP-Target-Emulation des PN532 ist in der Praxis empfindlich
+  (Timing, Firmware-Abhängigkeiten) und **noch nicht auf Hardware verifiziert**.
+  Es wird der eigene APDU-Responder in `NfcModule.cpp` genutzt, **nicht**
+  `components/PN532/emulatetag.cpp` (dort dokumentierter Overflow, nur NDEF).
 
 ## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
 
@@ -136,3 +168,4 @@ Absturz/Reboot. **Beim Umsetzen dieses Moduls deshalb:**
 
 - [x] `NfcModule.h` / `.cpp` nach dem Muster aus [`../README.md`](../README.md) anlegen.
 - [x] Empfangene Daten als Hex im Serial-Monitor ausgeben.
+- [x] Karten-Emulation (Capture & Replay) implementiert — **auf Hardware testen.**

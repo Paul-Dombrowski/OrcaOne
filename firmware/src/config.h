@@ -44,6 +44,9 @@
 #define NFC_POLL_INTERVAL_MS 100
 #define NFC_READ_TIMEOUT_MS  250
 #define NFC_PASSIVE_RETRIES  0x01
+// Karten-Emulation: wie lange tgInitAsTarget je update()-Zyklus auf einen Leser
+// (das Handy) wartet. Blockiert update() fuer diese Dauer - daher moderat halten.
+#define NFC_EMU_INIT_TIMEOUT_MS 1500
 
 // ---- Drehgeber KY-040 (Menue-Navigation) ----
 #define PIN_ENCODER_CLK   25
