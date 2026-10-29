@@ -98,9 +98,6 @@ private:
   void dumpGetDataTags();
   bool getDataTag(uint32_t tag, uint8_t* out, uint8_t& outLen);
 
-  static void printTagHex(uint32_t tag);
-  static const char* emvTagName(uint32_t tag);
-
   // ------------------------------------------------------------------------
   //  Karten-Emulation (Capture & Replay)
   // ------------------------------------------------------------------------
