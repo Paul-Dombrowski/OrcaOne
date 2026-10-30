@@ -152,6 +152,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
 
   if (action == "clear") {
     _card.clear();
+    _capture.reset();
     return true;
   }
 

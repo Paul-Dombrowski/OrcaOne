@@ -410,9 +410,9 @@ bool EmvReader::readCardRecords(const uint8_t* afl, uint8_t aflLen, CardData& ca
       uint8_t firstRec = afl[i + 1];
       uint8_t lastRec = afl[i + 2];
 
-      for (uint8_t rec = firstRec; rec <= lastRec; ++rec) {
+      for (int rec = firstRec; rec <= lastRec; ++rec) {
         uint8_t readRecordCmd[] = {
-          0x00, 0xB2, rec, static_cast<uint8_t>((sfi << 3) | 0x04), 0x00
+          0x00, 0xB2, static_cast<uint8_t>(rec), static_cast<uint8_t>((sfi << 3) | 0x04), 0x00
         };
         uint8_t responseLength = sizeof(response);
         bool success = _reader.inDataExchange(readRecordCmd, sizeof(readRecordCmd), response, &responseLength);

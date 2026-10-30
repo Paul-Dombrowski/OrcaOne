@@ -25,6 +25,7 @@ public:
 private:
   PN532& _reader;
   bool _emuWaitLogged = false;  // "warte auf Leser" nur einmal melden
+  bool _initErrLogged = false;  // Init-Fehler nur einmal melden
 
   // Baut aus einer empfangenen C-APDU die Antwort (inkl. SW1 SW2) in out.
   // Rueckgabe: Antwortlaenge (<= outCap, immer >= 2) oder 0 bei Fehler.

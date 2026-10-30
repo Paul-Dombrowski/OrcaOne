@@ -43,7 +43,10 @@ int EmvEmulator::buildResponse(const EmvCapture& cap, const uint8_t* c, int clen
   // Haengt an die (ggf. gekappten) Nutzdaten die beiden Statusbytes an.
   auto emit = [&](const uint8_t* data, int len, uint8_t sw1, uint8_t sw2) -> int {
     if (len < 0) len = 0;
-    if (len > outCap - 2) len = outCap - 2;  // Platz fuer SW1 SW2 sichern
+    if (len > outCap - 2) {
+      len = outCap - 2;  // Platz fuer SW1 SW2 sichern
+      Serial.println("[emu] Antwort gekappt (Record > 251 B)");
+    }
     if (len > 0 && data) memcpy(out, data, len);
     out[len] = sw1;
     out[len + 1] = sw2;
@@ -120,10 +123,14 @@ bool EmvEmulator::runOnce(const EmvCapture& cap, const uint8_t uid[4], uint16_t 
   int8_t st = _reader.tgInitAsTarget(cmd, sizeof(cmd), initTimeoutMs);
   if (st == 0) return false;  // Timeout, noch kein Leser -> naechster update()-Zyklus
   if (st < 0) {
-    Serial.println("[emu] tgInitAsTarget-Fehler (PN532 unterstuetzt ISO-DEP-"
-                   "Target evtl. nicht zuverlaessig).");
+    if (!_initErrLogged) {
+      Serial.println("[emu] tgInitAsTarget-Fehler (PN532 unterstuetzt ISO-DEP-"
+                     "Target evtl. nicht zuverlaessig).");
+      _initErrLogged = true;
+    }
     return true;
   }
+  _initErrLogged = false;
 
   Serial.println("[emu] Leser aktiv - beantworte APDUs.");
   _emuWaitLogged = false;  // naechste Runde darf wieder "warte" melden
@@ -131,7 +138,9 @@ bool EmvEmulator::runOnce(const EmvCapture& cap, const uint8_t uid[4], uint16_t 
   uint8_t capdu[255];
   uint8_t resp[255];
   // Schleifenlimit gegen Haengenbleiben bei fehlerhaftem Leser.
+  const unsigned long emuStart = millis();
   for (int guard = 0; guard < 64; ++guard) {
+    if (millis() - emuStart > 8000UL) break;  // Sitzung zeitlich begrenzen
     int16_t n = _reader.tgGetData(capdu, sizeof(capdu));
     if (n < 0) break;  // Leser weg / Fehler -> Sitzung beenden
     if (n == 0) continue;
@@ -142,7 +151,7 @@ bool EmvEmulator::runOnce(const EmvCapture& cap, const uint8_t uid[4], uint16_t 
     Tlv::printHex(capdu, (n > 16) ? 16 : static_cast<uint8_t>(n));
     Serial.println();
 
-    int outLen = buildResponse(cap, capdu, n, resp, sizeof(resp));
+    int outLen = buildResponse(cap, capdu, n, resp, 253);  // LEN in tgSetData ist uint8_t: Daten+SW <= 253
     if (outLen <= 0) break;
     if (!_reader.tgSetData(resp, static_cast<uint8_t>(outLen))) {
       Serial.println("[emu] tgSetData fehlgeschlagen - Sitzung beendet.");
