@@ -2,7 +2,7 @@
 
 uint8_t EmvEmulator::buildSynthPpse(const EmvCapture& cap, uint8_t* out, uint8_t outCap) {
   // Minimale PPSE-FCI, die genau unsere eine AID anpreist:
-  //   6F L1  84 0E <"2PAY.SYS.DDC01">  A5 L2  BF0C L3  61 L4  4F <len> <AID>  87 01 01
+  //   6F L1  84 0E <"2PAY.SYS.DDF01">  A5 L2  BF0C L3  61 L4  4F <len> <AID>  87 01 01
   if (cap.aidLen == 0 || cap.aidLen > 16) return 0;
   static const uint8_t ppseName[14] = {
       '2','P','A','Y','.','S','Y','S','.','D','D','C','0','1'};
@@ -63,7 +63,7 @@ int EmvEmulator::buildResponse(const EmvCapture& cap, const uint8_t* c, int clen
   if (ins == 0xA4 && p1 == 0x04 && clen >= 5) {
     const uint8_t lc = c[4];
     const uint8_t* df = &c[5];
-    static const char* kPpse = "2PAY.SYS.DDC01";
+    static const char* kPpse = "2PAY.SYS.DDF01";
     if (lc == 14 && clen >= 5 + 14 && memcmp(df, kPpse, 14) == 0) {
       if (cap.ppseLen > 0) return emit(cap.ppse, cap.ppseLen, 0x90, 0x00);
       uint8_t synth[96];

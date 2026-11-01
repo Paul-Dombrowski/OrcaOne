@@ -1,10 +1,10 @@
 #include "EmvReader.h"
 
 namespace {
-// Kontaktlos: 2PAY.SYS.DDC01 (PPSE)
+// Kontaktlos: 2PAY.SYS.DDF01 (PPSE)
 const uint8_t SelectPPSE[] = {
     0x00, 0xA4, 0x04, 0x00, 0x0E,
-    '2', 'P', 'A', 'Y', '.', 'S', 'Y', 'S', '.', 'D', 'D', 'C', '0', '1',
+    '2', 'P', 'A', 'Y', '.', 'S', 'Y', 'S', '.', 'D', 'D', 'F', '0', '1',
     0x00
 };
 
@@ -46,7 +46,7 @@ bool EmvReader::readCard(CardData& out, EmvCapture& cap) {
 
   std::vector<EmvAid> aidList;
 
-  // 1. PPSE Directory (2PAY.SYS.DDC01) abfragen
+  // 1. PPSE Directory (2PAY.SYS.DDF01) abfragen
   bool ppseOk = selectPpse(aidList, cap);
 
   if (!ppseOk || aidList.empty()) {
@@ -146,7 +146,7 @@ bool EmvReader::selectPpse(std::vector<EmvAid>& aidList, EmvCapture& cap) {
   uint8_t response[MaxBufferLength];
   uint8_t responseLength = sizeof(response);
 
-  Serial.println("[EMV] Sende SELECT 2PAY.SYS.DDC01 (PPSE)...");
+  Serial.println("[EMV] Sende SELECT 2PAY.SYS.DDF01 (PPSE)...");
   bool success = _reader.inDataExchange(
       const_cast<uint8_t*>(SelectPPSE),
       sizeof(SelectPPSE),
