@@ -15,6 +15,7 @@
 //  eingebunden; die TODO-markierten Bereiche folgen mit den weiteren Modulen.
 // ============================================================================
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include "config.h"
 #include "modules/nfc/NfcModule.h"
 
@@ -59,6 +60,29 @@ static void blinkUpdate() {
 }
 // --------------------------------------------------------------------------
 
+// --- Vorlaeufige Serial-Befehle (bis die echte Konsole steht) --------------
+// Im Serial Monitor einen Befehl + Enter tippen: read | emulate | stop | clear
+// Alles landet in nfc.handleCommand() - genau dem Weg, den spaeter auch Menue,
+// Handy und die richtige Konsole nutzen. Nicht blockierend.
+static void pollSerialCommands() {
+  static String line;
+  while (Serial.available()) {
+    char c = (char)Serial.read();
+    if (c == '\n' || c == '\r') {
+      line.trim();
+      if (line.length() > 0) {
+        JsonDocument params;  // leer: read/emulate/stop/clear brauchen keine
+        bool ok = nfc.handleCommand(line, params.to<JsonObject>());
+        Serial.print(ok ? "[cmd] angenommen: " : "[cmd] unbekannt/abgelehnt: ");
+        Serial.println(line);
+      }
+      line = "";
+    } else if (line.length() < 32) {
+      line += c;
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("\n[OrcaOne] Start...");
@@ -84,6 +108,7 @@ void setup() {
 void loop() {
   //blinkUpdate();   // TEST: On-Board-LED
 
+  pollSerialCommands();  // Vorlaeufig: read/emulate/stop/clear ueber Serial Monitor.
   nfc.update();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
 
   // TODO: uebrigen Modulen Rechenzeit geben und danach auch NFC ueber die Liste updaten.
