@@ -120,15 +120,30 @@ bool EmvEmulator::runOnce(const EmvCapture& cap, const uint8_t uid[4], uint16_t 
     _emuWaitLogged = true;
   }
 
+  const unsigned long tInit = millis();
   int8_t st = _reader.tgInitAsTarget(cmd, sizeof(cmd), initTimeoutMs);
-  if (st == 0) return false;  // Timeout, noch kein Leser -> naechster update()-Zyklus
-  if (st < 0) {
-    if (!_initErrLogged) {
-      Serial.println("[emu] tgInitAsTarget-Fehler (PN532 unterstuetzt ISO-DEP-"
-                     "Target evtl. nicht zuverlaessig).");
-      _initErrLogged = true;
+  const unsigned long initWaited = millis() - tInit;
+
+  // DIAGNOSE (temporaer): zeigt, was tgInitAsTarget liefert.
+  Serial.print("[emu][diag] tgInitAsTarget st=");
+  Serial.print(st);
+  Serial.print(" nach ");
+  Serial.print(initWaited);
+  Serial.println(" ms");
+
+  // Wichtig: Der I2C-Transport meldet einen Timeout als st=-2 (getResponseLength
+  // liefert -1, nicht PN532_TIMEOUT). Ein Timeout ist KEIN Fehler - der PN532
+  // wartet nur auf einen Leser. Nur ein SCHNELLES st<0 (deutlich vor Ablauf des
+  // Timeouts) ist ein echter Fehler (Kommando abgelehnt / Bus-Problem).
+  if (st <= 0) {
+    if (st < 0 && initWaited < (unsigned long)initTimeoutMs / 2) {
+      if (!_initErrLogged) {
+        Serial.println("[emu] tgInitAsTarget-Fehler (Kommando abgelehnt / I2C).");
+        _initErrLogged = true;
+      }
+      return true;
     }
-    return true;
+    return false;  // Timeout: kein Leser im Zeitfenster -> naechster Zyklus
   }
   _initErrLogged = false;
 
