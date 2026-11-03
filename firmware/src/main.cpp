@@ -17,6 +17,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "config.h"
+#include "storage/StorageService.h"
 #include "modules/nfc/NfcModule.h"
 
 // --- Erstes implementiertes Modul ---
@@ -88,6 +89,9 @@ void setup() {
   Serial.println("\n[OrcaOne] Start...");
 
   pinMode(PIN_LED_BUILTIN, OUTPUT);   // TEST: On-Board-LED
+
+  Storage.begin();  // Zentraler Speicher-Dienst: waehlt SD (falls Karte) sonst RAM.
+                    // Muss VOR den Modulen laufen, damit sie direkt speichern koennen.
 
   nfc.begin();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
 
