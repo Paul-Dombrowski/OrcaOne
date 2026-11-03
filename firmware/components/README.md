@@ -57,12 +57,13 @@ Minimale `CMakeLists.txt` für eine Arduino-Bibliothek:
 idf_component_register(
   SRCS "src/DieLib.cpp"          # alle .cpp der Bibliothek auflisten
   INCLUDE_DIRS "src"             # wo die .h liegen
-  REQUIRES arduino               # braucht Arduino.h, Wire, SPI ...
+  REQUIRES espressif__arduino-esp32  # Arduino.h, Wire und SPI der Registry-Komponente
 )
 ```
 
-- `REQUIRES arduino` ist bei fast allen diesen Bibliotheken nötig (sie benutzen
-  `Arduino.h`, `Wire`, `SPI`). Nutzt die Lib weitere Komponenten, diese ergänzen.
+- `REQUIRES espressif__arduino-esp32` ist bei fast allen diesen Bibliotheken
+  nötig (sie benutzen `Arduino.h`, `Wire`, `SPI`). Nutzt die Lib weitere
+  Komponenten, diese ergänzen.
 - Einbinden im Code wie gewohnt: `#include <DieLib.h>`.
 
 ### Pflichtinhalt `HERKUNFT.md`
@@ -93,6 +94,17 @@ idf_component_register(
 
 | Ordner | Zweck | Genutzt von |
 |---|---|---|
-| *(noch keine — kommt in Schritt 3)* | | |
+| `PN532/` | PN532-Kern-Treiber (Elechouse/Seeed) | `modules/nfc` |
+| `PN532_I2C/` | I2C-Transport für den PN532 | `modules/nfc` |
+| `NDEF/` | NDEF-Nachrichten lesen/schreiben (Don Coleman) | `modules/nfc` |
 
 Beim Hinzufügen hier eine Zeile ergänzen.
+
+> Noch offen: je ein `HERKUNFT.md` (Quelle/Version/Lizenz) pro Komponente — bitte
+> die Download-Quelle eintragen, die bei dir verwendet wurde.
+
+> ⚠️ **Bekannte Schwachstellen** in PN532/NDEF (Upstream, untrusted Tag-Daten):
+> Der NDEF-Parser wurde lokal mit Längenprüfungen gepatcht; VLA-Stack-Overflow
+> beim Mifare-Schreiben und Buffer-Overflow in `emulatetag` (ungenutzt) sind
+> weiterhin offen. Details und Gegenmaßnahmen:
+> [`../src/modules/nfc/README.md`](../src/modules/nfc/README.md) → „Sicherheit".

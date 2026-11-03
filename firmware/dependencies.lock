@@ -1,4 +1,11 @@
 dependencies:
+  bblanchon/arduinojson:
+    component_hash: 5e6aff2bc5bc988b36c8e90c01e637495ee895ad3af93911860c21ec6da79b6a
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 7.4.3
   chmorgan/esp-libhelix-mp3:
     component_hash: cbb76089dc2c5749f7b470e2e70aedc44c9da519e04eb9a67d4c7ec275229e53
     dependencies:
@@ -598,8 +605,9 @@ dependencies:
       type: service
     version: 1.23.1
 direct_dependencies:
+- bblanchon/arduinojson
 - espressif/arduino-esp32
 - idf
-manifest_hash: 80c0b09d612310b4977964a0ae103eab131b3ec28958aea9450013ffdd74b634
+manifest_hash: b7fd38ad8adc869c87050503d99d130671208058523fc1cdcd606edbfcc5a416
 target: esp32
 version: 2.0.0

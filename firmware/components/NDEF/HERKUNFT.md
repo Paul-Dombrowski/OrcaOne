@@ -1,0 +1,5 @@
+- Quelle:      Don Coleman NDEF Library; Upstream: https://github.com/don/NDEF
+- Version:     Im bestehenden Repository-Snapshot nicht dokumentiert; dort zuletzt vorhanden am 2026-10-24.
+- Lizenz:      BSD; siehe LICENSE.txt.
+- Geändert:    ja — NDEF-Längen und Feldgrenzen werden vor dem Zugriff geprüft; die Vier-Byte-Länge wird ohne sequenzierte Mehrfach-Inkremente dekodiert.
+- Genutzt von: firmware/src/modules/nfc
