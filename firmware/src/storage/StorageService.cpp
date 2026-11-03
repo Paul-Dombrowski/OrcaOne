@@ -25,9 +25,16 @@ SdBackend       sdBackend;
 StorageBackend* active = &ramBackend;  // Default: RAM; begin() waehlt ggf. SD
 bool            useSd  = false;
 
-// Ein Schluessel wird als Dateiname verwendet -> leer oder mit '/' ist unzulaessig.
-bool keyIsValid(const String& key) {
-  return key.length() > 0 && key.indexOf('/') < 0;
+// Namensraum und Schluessel werden als Ordner-/Dateiname auf der SD verwendet.
+// Deshalb hier zentral absichern (gilt backenduebergreifend): nicht leer, keine
+// Pfad-Trenner ('/' '\'), kein Pfad-Traversal ('.' / '..'), sinnvolle Laenge.
+// Bewusst KEINE Ziffern-nur-Regel: der Dienst ist generisch, andere Module
+// nutzen sprechende Schluessel (z. B. "registered"), siehe storage/README.md.
+bool nameIsValid(const String& s) {
+  if (s.length() == 0 || s.length() > 64) return false;
+  if (s == "." || s == "..") return false;
+  if (s.indexOf('/') >= 0 || s.indexOf('\\') >= 0) return false;
+  return true;
 }
 }  // namespace
 
@@ -50,21 +57,24 @@ bool StorageService::available() {
 }
 
 bool StorageService::save(const String& ns, const String& key, const String& data) {
-  if (!keyIsValid(key)) {
-    Serial.println("[storage] ungueltiger Schluessel (leer oder '/') - nicht gespeichert");
+  if (!nameIsValid(ns) || !nameIsValid(key)) {
+    Serial.println("[storage] ungueltiger Namensraum/Schluessel - nicht gespeichert");
     return false;
   }
   return active->save(ns, key, data);
 }
 
 String StorageService::load(const String& ns, const String& key) {
+  if (!nameIsValid(ns) || !nameIsValid(key)) return String();
   return active->load(ns, key);
 }
 
 String StorageService::list(const String& ns) {
+  if (!nameIsValid(ns)) return "[]";
   return active->list(ns);
 }
 
 bool StorageService::remove(const String& ns, const String& key) {
+  if (!nameIsValid(ns) || !nameIsValid(key)) return false;
   return active->remove(ns, key);
 }
