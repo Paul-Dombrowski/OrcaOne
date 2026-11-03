@@ -1,5 +1,7 @@
 #include "StorageService.h"
 #include "RamBackend.h"
+#include "SdBackend.h"
+#include "../config.h"
 
 // ============================================================================
 //  StorageService - Orchestrator des zentralen Speicher-Dienstes
@@ -19,7 +21,8 @@ StorageService Storage;
 
 namespace {
 RamBackend      ramBackend;
-StorageBackend* active = &ramBackend;  // Default: RAM (Task 2 waehlt ggf. SD)
+SdBackend       sdBackend;
+StorageBackend* active = &ramBackend;  // Default: RAM; begin() waehlt ggf. SD
 bool            useSd  = false;
 
 // Ein Schluessel wird als Dateiname verwendet -> leer oder mit '/' ist unzulaessig.
@@ -29,10 +32,17 @@ bool keyIsValid(const String& key) {
 }  // namespace
 
 void StorageService::begin() {
-  // Task-1-Stand: nur RAM. Die SD-Erkennung kommt in StorageService (Task 2).
-  active = &ramBackend;
-  useSd  = false;
-  Serial.println("[storage] RAM-Backend aktiv (SD-Erkennung folgt)");
+  // Einmalige Erkennung beim Start (kein Hot-Plug). SD erkannt -> dauerhaft,
+  // sonst fluechtiges RAM. Niemals blockieren, egal was fehlt (§6.5).
+  if (sdBackend.begin(PIN_SD_CS)) {
+    active = &sdBackend;
+    useSd  = true;
+    Serial.println("[storage] SD erkannt - dauerhafter Speicher aktiv");
+  } else {
+    active = &ramBackend;
+    useSd  = false;
+    Serial.println("[storage] keine SD - Speicher nur im RAM");
+  }
 }
 
 bool StorageService::available() {
