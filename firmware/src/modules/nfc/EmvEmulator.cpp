@@ -124,13 +124,6 @@ bool EmvEmulator::runOnce(const EmvCapture& cap, const uint8_t uid[4], uint16_t 
   int8_t st = _reader.tgInitAsTarget(cmd, sizeof(cmd), initTimeoutMs);
   const unsigned long initWaited = millis() - tInit;
 
-  // DIAGNOSE (temporaer): zeigt, was tgInitAsTarget liefert.
-  Serial.print("[emu][diag] tgInitAsTarget st=");
-  Serial.print(st);
-  Serial.print(" nach ");
-  Serial.print(initWaited);
-  Serial.println(" ms");
-
   // Wichtig: Der I2C-Transport meldet einen Timeout als st=-2 (getResponseLength
   // liefert -1, nicht PN532_TIMEOUT). Ein Timeout ist KEIN Fehler - der PN532
   // wartet nur auf einen Leser. Nur ein SCHNELLES st<0 (deutlich vor Ablauf des

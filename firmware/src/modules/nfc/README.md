@@ -75,10 +75,18 @@ Karte.
 - **Timing:** `emulate` lässt `update()` je Zyklus bis zu `NFC_EMU_INIT_TIMEOUT_MS`
   (config.h) auf einen Leser warten — in dieser Zeit blockiert der Loop. Nur im
   Emulationsmodus relevant.
-- ⚠️ **Hardware-Status:** Die Logik ist mit der echten Toolchain übersetzt, aber
-  die ISO-DEP-Target-Emulation des PN532 ist in der Praxis empfindlich
-  (Timing, Firmware-Abhängigkeiten) und **noch nicht auf Hardware verifiziert**.
-  Es wird der eigene APDU-Responder in `NfcModule.cpp` genutzt, **nicht**
+- ⛔ **Funktioniert über I2C NICHT (Hardware-getestet 2026-11).** Die Logik ist
+  korrekt — das Handy aktiviert den PN532 (`tgInitAsTarget` liefert `st=1`) und
+  beginnt den APDU-Dialog. Aber für die Emulation muss das 13,56-MHz-Feld des
+  Handys direkt auf dem PN532 liegen, und das stört den **geteilten I2C-Bus**
+  (SDA 21 / SCL 22), über den der ESP32 den Chip abfragt (`i2c.common: GPIO 21/22
+  is not usable` + Sitzungsabbruch). Taktrate (100 kHz), Clock-Stretch (20 ms),
+  Abstand, Verdrillen und geerdete Abschirmung wurden getestet — **nicht
+  rettbar**. Das Lesen/Mitschneiden ist davon nicht betroffen.
+- **Für funktionierende Emulation:** PN532 über **UART (HSU)** oder **SPI**
+  anbinden (verlässt den I2C-Bus; Host-Kommunikation läuft dann nicht mehr über
+  feldgestörte Leitungen). Hardware-/Transport-Umbau, derzeit nicht umgesetzt.
+- Es wird der eigene APDU-Responder in `EmvEmulator.cpp` genutzt, **nicht**
   `components/PN532/emulatetag.cpp` (dort dokumentierter Overflow, nur NDEF).
 
 ## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
