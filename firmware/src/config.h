@@ -65,9 +65,9 @@
 #define PIN_NRF_CSN        5
 
 // ---- Micro-SD (Add-on, SPI, teilt Bus mit NRF24; eigener CS-Pin) ----
-// Platzhalter: CS-Pin am D1 R32 festlegen, sobald die Hardware steht.
-// Muss ein ANDERER Pin sein als PIN_NRF_CSN. Erst dann einkommentieren.
-// #define PIN_SD_CS      16
+// Vom Speicher-Dienst (storage/) genutzt. Muss ein ANDERER Pin sein als
+// PIN_NRF_CSN (5). Am D1 R32 vor dem Hardware-Aufbau verifizieren.
+#define PIN_SD_CS      16
 
 // ---- On-Board-LED (Test: blinkt, wenn Build + Flash funktionieren) ----
 // D1 R32: blaue LED an GPIO2.
