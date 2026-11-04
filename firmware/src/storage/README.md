@@ -38,16 +38,21 @@ Verbindlich ist die Funktionalität; die genauen Signaturen stehen in
 - **Ohne SD-Karte** funktioniert alles weiter — dann liegt der Dienst im
   **RAM-Backend** (flüchtig, geht bei Neustart verloren). `available()` meldet
   `false`. **Kein Modul darf deshalb abbrechen.**
-- **Mit SD-Karte** (Modul `modules/sdcard/` vorhanden + Karte erkannt) wird dasselbe
-  Speichern automatisch dauerhaft.
+- **Mit SD-Karte** (vom `SdBackend` beim Start erkannt) wird dasselbe Speichern
+  automatisch dauerhaft. Der SD-Zugang liegt direkt hier im Dienst
+  (`SdBackend.cpp`), nicht in einem eigenen Modul.
 - **Erkennung nur beim Start** (kein Hot-Plug).
 - **Schreibfehler** (Karte voll/defekt) werden über den Rückgabewert gemeldet, das
   Gerät stürzt nicht ab.
 
-## To-do (später, nicht jetzt)
+## Umsetzung (Dateien)
 
-- [ ] `StorageService` + RAM-Backend implementieren (läuft ohne SD).
-- [ ] SD-Backend ergänzen, sobald `modules/sdcard/` steht.
+- [x] `StorageService` (Orchestrator) + RAM-Backend — läuft ohne SD.
+- [x] SD-Backend (`SdBackend`) — dauerhaft, sobald eine Karte erkannt wird.
+
+Struktur (Strategy-Pattern): `StorageService.cpp` wählt beim Start ein Backend
+hinter dem gemeinsamen Vertrag `StorageBackend.h`; `RamBackend` (flüchtig) oder
+`SdBackend` (Dateien unter `/<ns>/<key>.json`).
 
 > Reihenfolge der Backends ist Absicht: Erst das RAM-Backend, damit die ersten
 > Module sofort ohne SD funktionieren. SD ist ein Add-on.

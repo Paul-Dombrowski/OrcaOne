@@ -23,7 +23,7 @@ firmware/
    ├─ config.h      → Pins, WLAN, Timings (zentrale Einstellungen)
    ├─ core/         → Modul-Vertrag, Auto/Manuell-Modus, Menü
    ├─ storage/      → zentraler Speicher-Dienst
-   ├─ modules/      → die einzelnen Funktionen (nfc, ir, jammer, display, input, sdcard)
+   ├─ modules/      → die einzelnen Funktionen (nfc, ir, jammer, display, input)
    ├─ network/      → WLAN-Hotspot + Webserver + WebSocket
    └─ console/      → Serial-Konsole (Bedienung über den Serial Monitor)
 ```
