@@ -16,3 +16,6 @@ dependencies:
 
   # JSON-Typen des Modul-Vertrags (firmware/src/core/Module.h).
   bblanchon/arduinojson: "~7.4.3"
+
+  # U8g2-Zeichenbibliothek fuer das OLED-Display (C-API fuer ESP-IDF).
+  nixy4/u8g2: "~0.1.4"

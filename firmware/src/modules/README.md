@@ -6,8 +6,8 @@ Alle Module erben von der Basisklasse `Module` (siehe
 
 | Ordner | Funktion | Rolle | Status |
 |---|---|---|---|
-| `display/` | OLED-Ausgabe 1,3" | Aktor | ⬜ |
-| `input/` | Drehgeber (Menü-Navigation) | Sensor | ⬜ |
+| `display/` | OLED-Ausgabe 1,3" + Orca-Menü/Animationen | Aktor | 🟡 |
+| `input/` | Drehgeber/Taster für Menübedienung | Sensor | 🟡 |
 | `nfc/` | NFC/RFID UID lesen (Grundgerüst) | Sensor | 🟡 |
 | `ir/` | IR aufnehmen & senden | Sensor + Aktor | ⬜ |
 | `jammer/` | 2,4-GHz-Störsender | Aktor | ⬜ |

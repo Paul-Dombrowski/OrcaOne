@@ -12,16 +12,17 @@
 //  Fehlt ein Bauteil, laeuft trotzdem alles andere weiter (ARBEITSWEISE.md §6).
 //
 //  HINWEIS: Dies ist ein GERUEST. NFC ist als erster Grundtest direkt
-//  eingebunden; die TODO-markierten Bereiche folgen mit den weiteren Modulen.
+//  eingebunden; Display und Input sind die ersten weiteren aktiven Module.
 // ============================================================================
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "config.h"
+#include "core/InputEvent.h"
+#include "modules/display/DisplayModule.h"
+#include "modules/input/InputModule.h"
 #include "modules/nfc/NfcModule.h"
 
-// --- Erstes implementiertes Modul ---
-// #include "modules/display/DisplayModule.h"
-// #include "modules/input/InputModule.h"
+// --- Weitere Module ---
 // #include "modules/ir/IrModule.h"
 // #include "modules/jammer/JammerModule.h"
 // #include "core/ModeManager.h"
@@ -31,8 +32,8 @@
 // #include "console/SerialConsole.h"   // stellt das globale Objekt "Console" bereit
 
 // --- Globale Objekte (ein Exemplar pro Modul) ---
-// DisplayModule display;
-// InputModule   input;
+DisplayModule display;
+InputModule input;
 NfcModule nfc;
 // IrModule      ir;
 // JammerModule  jammer;
@@ -61,9 +62,8 @@ static void blinkUpdate() {
 // --------------------------------------------------------------------------
 
 // --- Vorlaeufige Serial-Befehle (bis die echte Konsole steht) --------------
-// Im Serial Monitor einen Befehl + Enter tippen: read | emulate | stop | clear
-// Alles landet in nfc.handleCommand() - genau dem Weg, den spaeter auch Menue,
-// Handy und die richtige Konsole nutzen. Nicht blockierend.
+// Im Serial Monitor einen Befehl + Enter tippen: Menue up/down/ok/back oder
+// NFC read/emulate/stop/clear. Nicht blockierend.
 static void pollSerialCommands() {
   static String line;
   while (Serial.available()) {
@@ -72,7 +72,9 @@ static void pollSerialCommands() {
       line.trim();
       if (line.length() > 0) {
         JsonDocument params;  // leer: read/emulate/stop/clear brauchen keine
-        bool ok = nfc.handleCommand(line, params.to<JsonObject>());
+        JsonObject commandParams = params.to<JsonObject>();
+        bool ok = display.handleCommand(line, commandParams) ||
+                  nfc.handleCommand(line, commandParams);
         Serial.print(ok ? "[cmd] angenommen: " : "[cmd] unbekannt/abgelehnt: ");
         Serial.println(line);
       }
@@ -89,6 +91,8 @@ void setup() {
 
   pinMode(PIN_LED_BUILTIN, OUTPUT);   // TEST: On-Board-LED
 
+  display.begin();
+  input.begin();
   nfc.begin();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
 
   // TODO: uebrige Module initialisieren und danach auch NFC ueber die Liste starten.
@@ -109,6 +113,10 @@ void loop() {
   //blinkUpdate();   // TEST: On-Board-LED
 
   pollSerialCommands();  // Vorlaeufig: read/emulate/stop/clear ueber Serial Monitor.
+  input.update();
+  const InputEvent inputEvent = input.poll();
+  if (inputEvent != InputEvent::None) display.handleInput(inputEvent);
+  display.update();
   nfc.update();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
 
   // TODO: uebrigen Modulen Rechenzeit geben und danach auch NFC ueber die Liste updaten.
@@ -117,10 +125,8 @@ void loop() {
   // TODO: Automatik-Regeln auswerten (nur aktiv, wenn Modus == auto)
   // mode.update();
 
-  // TODO: Drehgeber-Ereignisse ans Menue geben (die Konsole tut dasselbe
-  //       mit up/down/ok/back - beide Wege landen in menu.handleInput()).
-  // InputEvent e = input.poll();
-  // if (e != InputEvent::None) menu.handleInput(e);
+  // Das Input-Modul liefert Eingaben an die aktuelle Anzeige. Sobald der
+  // MenuController bereit ist, wird die Weitergabe dorthin verlegt.
 
   // TODO: Netzwerk bedienen + regelmaessig Status ans Handy schicken
   // net.update();
