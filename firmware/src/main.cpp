@@ -117,11 +117,17 @@ void setup() {
 
   pinMode(PIN_LED_BUILTIN, OUTPUT);   // TEST: On-Board-LED
 
-  Storage.begin();  // Zentraler Speicher-Dienst: waehlt SD (falls Karte) sonst RAM.
-                    // Muss VOR den Modulen laufen, damit sie direkt speichern koennen.
-
-  nfc.begin();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
+  // SPI ZUERST durch den Jammer (NRF24) initialisieren! SPIClass::begin() im
+  // Arduino-Core kehrt vorzeitig zurueck (if(_spi) return true;), sobald der Bus
+  // einmal laeuft - der ERSTE Aufrufer legt die Pins fest. Lief Storage.begin()
+  // (SD.begin -> spi.begin() mit Default-Pins) zuerst, wurde die explizite
+  // NRF24-Pinwahl ignoriert und der Chip antwortete nicht (isChipConnected()=0).
   jammer.begin();
+
+  Storage.begin();  // Speicher-Dienst (SD/RAM). Teilt den SPI-Bus mit dem NRF24;
+                    // erbt jetzt die vom Jammer gesetzte Buskonfiguration (eigener CS).
+
+  nfc.begin();  // Vorlaeufiger NFC-Grundtest (I2C, unabhaengig vom SPI-Bus).
 
   // TODO: uebrige Module initialisieren und danach auch NFC ueber die Liste starten.
   // for (Module* m : modules) m->begin();
