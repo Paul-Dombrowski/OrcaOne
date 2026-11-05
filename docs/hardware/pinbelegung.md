@@ -74,7 +74,7 @@ braucht aber einen **eigenen Chip-Select (CS)**.
 | Signal | ESP32-Pin |
 |---|---|
 | SCK / MISO / MOSI | wie NRF24 (18 / 19 / 23) |
-| CS | **TBD** — am D1 R32 festlegen (anderer Pin als NRF24-CSN) |
+| CS | **16** (`PIN_SD_CS`, anderer Pin als NRF24-CSN 5) |
 
-In `config.h` steht `PIN_SD_CS` als auskommentierter Platzhalter; erst nach
-Festlegung einkommentieren.
+`PIN_SD_CS` ist in `config.h` gesetzt und wird vom Speicher-Dienst (`storage/`)
+genutzt. Der Wert 16 ist am D1 R32 noch zu verifizieren.

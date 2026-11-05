@@ -39,8 +39,7 @@ OrcaOne/
 │     │  ├─ ir/              → IR aufnehmen & senden (KY-022 / KY-005)
 │     │  ├─ jammer/          → 2,4-GHz-Modul (NRF24L01+)
 │     │  ├─ display/         → OLED-Ausgabe (1,3")
-│     │  ├─ input/           → Drehgeber (Menü-Navigation)
-│     │  └─ sdcard/          → Micro-SD (Add-on, liefert SD-Backend für storage/)
+│     │  └─ input/           → Drehgeber (Menü-Navigation)
 │     ├─ network/            → WLAN-Access-Point + Webserver + WebSocket
 │     └─ console/            → Serial-Konsole: alles per Serial Monitor bedienbar
 │

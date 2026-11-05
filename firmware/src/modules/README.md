@@ -11,7 +11,10 @@ Alle Module erben von der Basisklasse `Module` (siehe
 | `nfc/` | NFC/RFID UID lesen (Grundgerüst) | Sensor | 🟡 |
 | `ir/` | IR aufnehmen & senden | Sensor + Aktor | ⬜ |
 | `jammer/` | 2,4-GHz-Störsender | Aktor | ⬜ |
-| `sdcard/` | Micro-SD (Add-on, liefert SD-Backend für `storage/`) | — | ⬜ |
+
+> **Micro-SD:** kein eigenes Modul. Der SD-Zugang liegt direkt im zentralen
+> Speicher-Dienst ([`../storage/SdBackend.cpp`](../storage/SdBackend.cpp)) —
+> `storage/` ist laut `docs/ARBEITSWEISE.md` §4 die einzige Stelle, die die SD kennt.
 
 ## Ein neues Modul anlegen (Bauanleitung)
 

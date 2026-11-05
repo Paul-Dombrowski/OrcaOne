@@ -48,11 +48,9 @@ Kennzeichnung: **[P]** = Pflicht (für Aufgabe/Note nötig) · **[E]** = Erweite
 ## storage — zentraler Speicher-Dienst
 - **[P]** RAM-Backend: Speichern/Lesen funktioniert ohne SD (flüchtig).
 - **[P]** `available()` meldet ehrlich, ob Dauerspeicher da ist.
-- **[E]** SD-Backend: dauerhaft, sobald `sdcard` + Karte vorhanden.
-
-## sdcard — Micro-SD (Add-on)
-- **[E]** Karte beim Start erkennen, SD-Zugang für den Speicher-Dienst bereitstellen.
-- **[E]** Status melden (Karte vorhanden, freier Platz).
+- **[E]** SD-Backend (`SdBackend`, Teil des Dienstes): dauerhaft, sobald eine Karte
+  beim Start erkannt wird. Kein eigenes `sdcard`-Modul — `storage/` ist die
+  einzige Stelle, die die SD kennt (ARBEITSWEISE.md §4).
 
 ## core — ModeManager + MenuController
 - **[P]** Automatik ↔ Manuell umschalten (per Menü und Handy).

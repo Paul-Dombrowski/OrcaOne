@@ -1,6 +1,7 @@
 #include "NfcModule.h"
 
 #include "../../config.h"
+#include "../../storage/StorageService.h"
 #include <Wire.h>
 
 NfcModule::NfcModule()
@@ -90,7 +91,39 @@ void NfcModule::update() {
 
   _emvReader.readCard(_card, _capture);
 
+  // Auto-Save: eine erfolgreich gelesene Karte (Dump bis "ENDE DUMP" =
+  // _card.readSuccess) wird automatisch ueber den zentralen Speicher-Dienst
+  // abgelegt. Schluessel = 16-stellige Kartennummer -> gleiche Karte
+  // ueberschreibt sich selbst (kein Duplikat), verschiedene Karten liegen
+  // nebeneinander. Laeuft auch ohne SD (dann fluechtig im RAM).
+  if (_card.readSuccess && _card.cardNumber.length() > 0) {
+    const bool saved = Storage.save("nfc", _card.cardNumber, cardToJson());
+    Serial.println(saved ? "[nfc] Karte gespeichert" : "[nfc] Speichern fehlgeschlagen");
+  } else if (_card.readSuccess) {
+    Serial.println("[nfc] Kartennummer fehlt - nicht gespeichert");
+  }
+
   Serial.println("====================================\n");
+}
+
+String NfcModule::cardToJson() const {
+  JsonDocument doc;
+  doc["uid"]           = _card.uid;
+  doc["aid"]           = _card.aid;
+  doc["cardType"]      = _card.cardType;
+  doc["cardNumber"]    = _card.cardNumber;
+  doc["expiry"]        = _card.expiry;
+  doc["cardholder"]    = _card.cardholder;
+  doc["countryCode"]   = _card.countryCode;
+  doc["currencyCode"]  = _card.currencyCode;
+  doc["effectiveDate"] = _card.effectiveDate;
+  doc["psn"]           = _card.psn;
+  doc["serviceCode"]   = _card.serviceCode;
+  doc["aip"]           = _card.aip;
+
+  String out;
+  serializeJson(doc, out);
+  return out;
 }
 
 void NfcModule::statusJson(JsonObject obj) {

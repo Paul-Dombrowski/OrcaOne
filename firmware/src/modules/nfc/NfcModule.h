@@ -20,6 +20,10 @@ public:
 private:
   static constexpr uint8_t MaxUidLength = 7;
 
+  // Serialisiert die zuletzt gelesenen Kartendaten (_card) als JSON-Objekt-Text
+  // fuer den zentralen Speicher-Dienst (Storage.save).
+  String cardToJson() const;
+
   PN532_I2C _transport;
   PN532 _reader;
   EmvReader _emvReader{_reader};

@@ -11,8 +11,7 @@ constexpr int kOrcaSegments = 16;
 constexpr float kOrcaLength = 44.0f;
 constexpr int kBubbleCount = 5;
 constexpr unsigned long kFrameMs = 30;
-constexpr char kMenuItems[][16] = {
-    "Orca schwimmt", "Orca springt", "Laden (Ring)", "Info"};
+constexpr int kVisibleMenuRows = 4;
 constexpr uint8_t kOrcaRadii[kOrcaSegments + 1] = {
     1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6, 6, 6, 5, 5, 4, 3};
 uint8_t wireByteCallback(u8x8_t* u8x8, uint8_t message, uint8_t argument,
@@ -74,7 +73,7 @@ void DisplayModule::begin() {
 void DisplayModule::update() {
   if (!_ok) return;
 
-  if (_screen == S_MENU) {
+  if (_screen == S_MENU || _screen == S_ORCA_MENU) {
     if (_needsRedraw) {
       _needsRedraw = false;
       drawMenu();
@@ -82,10 +81,18 @@ void DisplayModule::update() {
     return;
   }
 
+  if (_screen == S_PLATZHALTER) {
+    if (_needsRedraw) {
+      _needsRedraw = false;
+      drawPlatzhalter();
+    }
+    return;
+  }
+
   if (millis() - _lastFrame < kFrameMs) return;
   _lastFrame = millis();
 
-  switch (_screen) {
+  switch (_screen) {                                    //switch für regler
     case S_SCHWIMMEN:
       drawSwim();
       break;
@@ -106,22 +113,35 @@ void DisplayModule::update() {
 void DisplayModule::handleInput(InputEvent event) {
   if (!_ok || event == InputEvent::None) return;
 
-  if (_screen == S_MENU) {
+  if (_screen == S_MENU || _screen == S_ORCA_MENU) {
+    const int menuIndex = _screen == S_ORCA_MENU ? 1 : 0;
+    int count = 0;
+    const MenuEntry* entries = menuFor(_screen, count);
+    if (entries == nullptr || count == 0) return;
+
     if (event == InputEvent::Up) {
-      _selected = (_selected + 3) % 4;
+      _sel[menuIndex] = (_sel[menuIndex] + count - 1) % count;
       _needsRedraw = true;
     } else if (event == InputEvent::Down) {
-      _selected = (_selected + 1) % 4;
+      _sel[menuIndex] = (_sel[menuIndex] + 1) % count;
       _needsRedraw = true;
     } else if (event == InputEvent::Click) {
-      startScreen(static_cast<Screen>(_selected + 1));
+      startScreen(entries[_sel[menuIndex]].target);
+    } else if (event == InputEvent::LongPress && _screen == S_ORCA_MENU) {
+      startScreen(S_MENU);
+    }
+    if (event == InputEvent::Up || event == InputEvent::Down) {
+      if (_sel[menuIndex] < _off[menuIndex]) {
+        _off[menuIndex] = _sel[menuIndex];
+      } else if (_sel[menuIndex] >= _off[menuIndex] + kVisibleMenuRows) {
+        _off[menuIndex] = _sel[menuIndex] - kVisibleMenuRows + 1;
+      }
     }
     return;
   }
 
   if (event == InputEvent::LongPress || event == InputEvent::Click) {
-    _screen = S_MENU;
-    _needsRedraw = true;
+    startScreen(_returnTo);
   } else if (_screen == S_SCHWIMMEN &&
              (event == InputEvent::Up || event == InputEvent::Down)) {
     _swimSpeed += event == InputEvent::Down ? 0.5f : -0.5f;
@@ -133,7 +153,11 @@ void DisplayModule::handleInput(InputEvent event) {
 void DisplayModule::statusJson(JsonObject obj) {
   obj["ok"] = _ok;
   obj["screen"] = screenName();
-  obj["selection"] = _selected;
+  const int menuIndex = _screen == S_ORCA_MENU
+                            ? 1
+                            : (_screen == S_MENU || _returnTo == S_MENU ? 0 : 1);
+  obj["selection"] = _sel[menuIndex];
+  obj["menuOffset"] = _off[menuIndex];
   obj["swimSpeed"] = _swimSpeed;
 }
 
@@ -259,21 +283,64 @@ void DisplayModule::drawOrca(float tailX, float tailY, float heading, int side,
   u8g2_DrawPixel(&_display, eyeX, eyeY);
 }
 
+const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
+                                                       int& count) const {
+  static const MenuEntry mainMenu[] = {
+      {"Infrarot", S_PLATZHALTER},
+      {"Jammer", S_PLATZHALTER},
+      {"NFC", S_PLATZHALTER},
+      {"Orca", S_ORCA_MENU},
+  };
+  static const MenuEntry orcaMenu[] = {
+      {"Schwimmen", S_SCHWIMMEN},
+      {"Springen", S_SPRINGEN},
+      {"Laden", S_LADEN},
+      {"Info", S_INFO},
+      {"Zurueck", S_MENU},
+  };
+
+  if (screen == S_MENU) {
+    count = sizeof(mainMenu) / sizeof(mainMenu[0]);
+    return mainMenu;
+  }
+  if (screen == S_ORCA_MENU) {
+    count = sizeof(orcaMenu) / sizeof(orcaMenu[0]);
+    return orcaMenu;
+  }
+  count = 0;
+  return nullptr;
+}
+
 void DisplayModule::drawMenu() {
+  const int menuIndex = _screen == S_ORCA_MENU ? 1 : 0;
+  int count = 0;
+  const MenuEntry* entries = menuFor(_screen, count);
+  if (entries == nullptr) return;
+
   u8g2_ClearBuffer(&_display);
   u8g2_SetFont(&_display, u8g2_font_6x12_tr);
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < kVisibleMenuRows; ++i) {
+    const int entryIndex = _off[menuIndex] + i;
+    if (entryIndex >= count) break;
     const int y = i * 16;
-    if (i == _selected) {
+    if (entryIndex == _sel[menuIndex]) {
       u8g2_DrawBox(&_display, 0, y, 128, 15);
       u8g2_SetDrawColor(&_display, 0);
-      u8g2_DrawStr(&_display, 6, y + 11, kMenuItems[i]);
+      u8g2_DrawStr(&_display, 6, y + 11, entries[entryIndex].label);
       u8g2_SetDrawColor(&_display, 1);
     } else {
       u8g2_DrawFrame(&_display, 0, y, 128, 15);
-      u8g2_DrawStr(&_display, 6, y + 11, kMenuItems[i]);
+      u8g2_DrawStr(&_display, 6, y + 11, entries[entryIndex].label);
     }
   }
+  u8g2_SendBuffer(&_display);
+}
+
+void DisplayModule::drawPlatzhalter() {
+  u8g2_ClearBuffer(&_display);
+  u8g2_SetFont(&_display, u8g2_font_6x10_tr);
+  u8g2_DrawStr(&_display, 2, 20, "Folgt");
+  u8g2_DrawStr(&_display, 2, 42, "Taste = zurueck");
   u8g2_SendBuffer(&_display);
 }
 
@@ -391,8 +458,13 @@ void DisplayModule::drawInfo() {
 }
 
 void DisplayModule::startScreen(Screen screen) {
+  if (screen != S_MENU && screen != S_ORCA_MENU &&
+      (_screen == S_MENU || _screen == S_ORCA_MENU)) {
+    _returnTo = _screen;
+  }
   _screen = screen;
   _lastFrame = 0;
+  _needsRedraw = true;
   if (screen == S_SPRINGEN) _jumpProgress = 0;
   if (screen == S_LADEN) {
     _loadAngle = -PI / 2;
@@ -403,10 +475,12 @@ void DisplayModule::startScreen(Screen screen) {
 const char* DisplayModule::screenName() const {
   switch (_screen) {
     case S_MENU: return "menu";
+    case S_ORCA_MENU: return "orca-menu";
     case S_SCHWIMMEN: return "swim";
     case S_SPRINGEN: return "jump";
     case S_LADEN: return "loading";
     case S_INFO: return "info";
+    case S_PLATZHALTER: return "placeholder";
     default: return "unknown";
   }
 }

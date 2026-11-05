@@ -24,3 +24,13 @@ CONFIG_U8G2_DISPLAY_DRIVER_SH1106=y
 # Das verwendete ESP32-Board besitzt 4 MB Flash; Image-Header passend setzen.
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+# FatFs: lange Dateinamen erlauben. Ohne diese Zeilen gilt nur 8.3 (max. 8
+# Zeichen Name + 3 Endung) -> der Speicher-Dienst scheitert, weil Dateinamen
+# wie /nfc/<16-stellige-Kartennummer>.json zu lang sind (f_open -> FR_INVALID_NAME).
+# LFN im Heap (statt Stack) spart Stackspeicher der Arduino-Loop-Task.
+# Hinweis: Greift nur bei NEU erzeugter sdkconfig. Eine bereits vorhandene
+# sdkconfig vorher loeschen oder "idf.py reconfigure" nach dem Entfernen der
+# alten CONFIG_FATFS_LFN_*-Zeilen ausfuehren.
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
