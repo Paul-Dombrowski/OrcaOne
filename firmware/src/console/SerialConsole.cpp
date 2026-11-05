@@ -5,6 +5,9 @@ SerialConsole Console;
 
 static const size_t kLineMax = 128;  // laengere Zeilen werden verworfen (LINE_MAX ist belegt)
 
+// TEMP DIAGNOSE (Fehlersuche "commands spinnen") - nach Klaerung entfernen.
+static const bool kConsoleDebug = true;
+
 void SerialConsole::begin(CommandRouter* router) {
   _router = router;
   _buf = "";
@@ -18,6 +21,13 @@ void SerialConsole::update() {
     Serial.write(c);  // Echo: macht die Eingabe im Monitor sichtbar
 
     if (c == '\n' || c == '\r') {
+      if (kConsoleDebug) {
+        Serial.printf("\r\n[dbg] term=0x%02X len=%u hex=", (uint8_t)c,
+                      (unsigned)_buf.length());
+        for (size_t i = 0; i < _buf.length(); i++)
+          Serial.printf("%02X ", (uint8_t)_buf[i]);
+        Serial.println();
+      }
       if (_overflow) {
         Serial.println("[console] Zeile zu lang - verworfen");
         _overflow = false;
@@ -82,6 +92,11 @@ void SerialConsole::dispatchText(const String& line) {
     start = sp + 1;
   }
 
+  if (kConsoleDebug) {
+    Serial.printf("[dbg] parse module='%s'(%u) action='%s'(%u)\r\n",
+                  module.c_str(), (unsigned)module.length(),
+                  action.c_str(), (unsigned)action.length());
+  }
   if (module.length() == 0) return;
   if (action.length() == 0) {
     Serial.printf("[console] Aktion fehlt fuer Modul \"%s\" - \"help\" eingeben\n",
