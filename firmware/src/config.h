@@ -77,8 +77,17 @@
 // ---- Timings ----
 #define STATUS_PUSH_MS   500   // wie oft der Status ans Handy geschickt wird (ms)
 
-// ---- Speicher-Slots (festgelegt) ----
-#define IR_SLOT_COUNT     3    // Anzahl speicherbarer IR-Signale
+// ---- IR-Speicher (Ringpuffer, backend-abhaengig) + Aufnahme/Senden ----
+// Slot-Anzahl haengt vom Speicher-Backend ab: mit SD grosszuegig, ohne SD klein
+// (RAM, Heap-Schutz). Rohe IR-Mitschnitte sind vergleichsweise gross.
+#define IR_SD_SLOT_COUNT         50   // Mitschnitt-Slots mit SD-Karte
+#define IR_RAM_SLOT_COUNT         3   // Mitschnitt-Slots ohne SD (fluechtig, RAM)
+#define IR_MAX_SIGNALS_PER_SLOT  20   // max. Signale je Mitschnitt-Fenster
+#define IR_CAPTURE_BUFFER       256   // IRrecv-Pufferlaenge (rohe Timing-Eintraege)
+#define IR_SEND_GAP_MS          100   // Pause zwischen zwei gesendeten Signalen (ms)
+#define IR_RECORD_UNKNOWN_THRESHOLD 12 // kurze Stoersignale (GPIO34) ausfiltern
+
+// ---- Speicher-Slots NFC ----
 #define NFC_SLOT_COUNT    3    // Anzahl speicherbarer NFC-Tags
 
 // ---- Automatik: registrierte Tag-UID, die im Auto-Modus die Aktion ausloest ----
