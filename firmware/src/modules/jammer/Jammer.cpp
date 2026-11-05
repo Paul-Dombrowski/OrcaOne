@@ -9,7 +9,9 @@ constexpr uint32_t kHopIntervalMs = 80;
 }
 
 JammerModule::JammerModule()
-    : _radio(PIN_NRF_CE, PIN_NRF_CSN) {}
+    // 4 MHz statt Default 10 MHz: robuster bei langen Dupont-/Breadboard-Kabeln
+    // (haeufige Ursache fuer fehlschlagende NRF24-Erkennung).
+    : _radio(PIN_NRF_CE, PIN_NRF_CSN, 4000000) {}
 
 void JammerModule::begin() {
   _ok = false;
@@ -27,7 +29,12 @@ void JammerModule::begin() {
   digitalWrite(PIN_SD_CS, HIGH);
 
   SPI.begin(PIN_NRF_SCK, PIN_NRF_MISO, PIN_NRF_MOSI, PIN_NRF_CSN);
-  if (!_radio.begin(&SPI)) {
+  const bool started = _radio.begin(&SPI);
+  // DIAGNOSE: isChipConnected() liest ein Register zurueck. =0 -> SPI spricht
+  // gar nicht (Leitung/Strom); =1 bei started=0 -> eher Konfig/Takt.
+  Serial.printf("[jammer] begin()=%d  isChipConnected()=%d\n",
+                started, _radio.isChipConnected());
+  if (!started) {
     Serial.println("[jammer] Keine SPI-Antwort vom NRF24 - Modul inaktiv");
     return;
   }
