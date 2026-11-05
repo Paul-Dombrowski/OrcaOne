@@ -17,29 +17,39 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
 
 ## Was es können soll
 
-- Ein IR-Signal einer Fernbedienung **aufnehmen** (empfangen und speichern).
-- Ein gespeichertes Signal auf Befehl wieder **senden** (Replay) → OrcaOne wird
-  zur Universalfernbedienung.
-- Mehrere Signale in Speicherplätzen (Slots) ablegen — **3 Slots**
-  (`IR_SLOT_COUNT` in [`../../config.h`](../../config.h)).
-- **[Erweiterung] Shut-Off-Modus:** eine eingebaute Liste von Ausschalt-Codes
-  verschiedener Hersteller nacheinander senden (Prinzip „TV-B-Gone"). Ein Befehl →
-  das Gerät feuert die Power-Off-Codes der Reihe nach ab.
+Zweck ist **Störung** („IR-Jammer"): ein IR-gesteuertes Gerät unbenutzbar machen.
+Zwei Betriebsarten, beide laufen bis `stop`:
+
+- **Aufnehmen/Senden:** Signale eines Zeitfensters mitschneiden (`record` →
+  `stop`) und blind, zufällig in Dauerschleife zurückspielen (`send`). Es kommt
+  bewusst nicht auf das „richtige" Signal an.
+- **[Erweiterung] Ausschalt-Sequenz:** kuratierte Off-Code-Liste von der SD-Karte
+  in Dauerschleife senden (Prinzip „TV-B-Gone").
+
+**Slots (Ringpuffer):** `record` legt automatisch einen **neuen** Slot an; ist der
+Puffer voll, wird der **älteste** überschrieben. Anzahl backend-abhängig:
+`IR_SD_SLOT_COUNT` (mit SD) bzw. `IR_RAM_SLOT_COUNT` (ohne SD), beide in
+[`../../config.h`](../../config.h). Format: rohe Timing-Arrays als JSON, je Slot
+bis `IR_MAX_SIGNALS_PER_SLOT` Signale.
 
 ## Befehle (`handleCommand`)
 
 | action | params | Wirkung |
 |---|---|---|
-| `record` | `{ "slot": <n> }` | nächstes empfangenes Signal in Slot `n` speichern |
-| `send` | `{ "slot": <n> }` | Signal aus Slot `n` senden |
-| `shutoff` | – | **[E]** eingebaute Hersteller-Ausschaltcodes nacheinander senden |
-| `stop` | – | laufende Aufnahme oder Shut-Off-Sequenz abbrechen |
+| `record` | – | Aufnahme starten: alle Signale bis `stop` in einen **neuen** Slot |
+| `send` | `{ "slot": <n> }` *(optional)* | Slot zufällig in Dauerschleife senden; ohne `slot` den **neuesten** |
+| `shutoff` | – | **[E]** Ausschalt-Codeliste von SD in Dauerschleife senden |
+| `stop` | – | laufende Aufnahme / Senden / Ausschalt-Sequenz beenden |
 
 ## Status (`statusJson`)
 
 ```json
-{ "ok": true, "recording": false, "lastProtocol": "NEC", "slots": [true,false,false] }
+{ "ok": true, "state": "idle", "slots": 0, "newest": 0, "hasShutoff": false }
 ```
+
+`state` = `idle` | `recording` | `sending` | `shutoff`; `slots` = Anzahl belegter
+Slots; `newest` = zuletzt beschriebener Slot (0 = keiner); `hasShutoff` = Ausschalt-
+liste auf SD vorhanden.
 
 ## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
 
@@ -50,18 +60,19 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
   die als „unbekanntes IR-Signal“ erkannt werden. Deshalb:
   - kurze Störsignale ausfiltern: `irrecv.setUnknownThreshold(12)` (Wert wie im
     Beispiel `IRrecvDumpV2` der Bibliothek),
-  - empfangene Signale **nur während `record`** in einen Slot übernehmen, sonst
-    höchstens `lastProtocol` aktualisieren.
-- **Testen ohne Display/Handy:** im Serial Monitor `ir record slot=1`, Taste auf
-  der Fernbedienung drücken, dann `ir send slot=1`.
+  - außerhalb von `record` wird **gar nicht dekodiert** (`decode()` wird nur im
+    Aufnahme-Zustand aufgerufen) — so erzeugt ein offener GPIO34 keine Slots.
+- **Testen ohne Display/Handy:** im Serial Monitor `ir record`, Taste(n) auf der
+  Fernbedienung drücken, `ir stop`, dann `ir send` (neuester Slot). `ir stop`
+  beendet auch das Senden.
 
 ## Umsetzungshinweise (auch für KI)
 
-- Empfang: `IRrecv` auf `PIN_IR_RX`. In `update()` mit `irrecv.decode(&results)`
-  prüfen (kehrt sofort zurück → nicht blockierend) und bei Treffer die Rohdaten
-  bzw. Protokoll+Code im aktiven Slot speichern.
-- Senden: `IRsend` auf `PIN_IR_TX`; passende `send...()`-Funktion zum gespeicherten
-  Protokoll aufrufen.
+- Empfang: `IRrecv` auf `PIN_IR_RX`, `decode(&results)` in `update()` (kehrt sofort
+  zurück → nicht blockierend). Gespeichert werden **rohe Timing-Arrays**
+  (`resultToRawArray` / `getCorrectedRawLength`), nicht protokoll-dekodiert —
+  robust auch für unbekannte Signale (Jammer-Zweck).
+- Senden: `IRsend` auf `PIN_IR_TX` mit `sendRaw(raw, len, khz)`.
 - GPIO34 ist **input-only** (kein interner Pull-up). Mit Empfänger passt das,
   weil das KY-022-Modul den Pegel selbst festlegt. Ohne Empfänger siehe oben.
 - Pins aus [`../../config.h`](../../config.h).
@@ -70,9 +81,11 @@ GPIO4. **Bibliothek:** `IRremoteESP8266`.
 
 ## To-do
 
-- [ ] `IrModule.h` / `.cpp` anlegen.
-- [ ] `record` → empfangenes Signal im Serial-Monitor ausgeben.
-- [ ] `send` → gespeichertes Signal zurückspielen und an echtem Gerät testen.
-- [ ] **[E]** `shutoff`: Tabelle bekannter Power-Off-Codes anlegen und nacheinander
-      senden — **nicht-blockierend** als Zustandsautomat (ein Code pro `update()`,
-      kleine Pause über `millis()`), damit das Gerät bedienbar bleibt.
+- [x] `IrModule.h` / `.cpp` anlegen.
+- [x] `record`/`stop` → Signale eines Fensters in einen Ringpuffer-Slot aufnehmen.
+- [x] `send` → Slot (neuester/`slot=n`) zufällig in Dauerschleife senden — **an echtem Gerät testen.**
+- [x] **[E]** `shutoff`: Off-Code-Liste von SD in Dauerschleife senden (nicht-blockierend, `millis()`).
+
+> **Ausschaltliste anlegen:** Datei im Namensraum `ir`, Schlüssel `shutoff`, gleiches
+> Format wie ein Slot: `{ "v":1, "signals":[ { "khz":38, "raw":[ ... ] }, ... ] }`
+> (Schlüssel `codes` wird als Alias akzeptiert). Auf SD unter `/ir/shutoff.json`.

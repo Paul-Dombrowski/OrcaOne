@@ -5,132 +5,58 @@
 //  Hardware-Logik - die steckt in den Modulen (firmware/src/modules/).
 //
 //  Ablauf:
-//    setup()  -> alle Module einmal initialisieren (begin())
-//    loop()   -> allen Modulen staendig update() geben + Netzwerk bedienen
-//                + Serial-Konsole bedienen (Bedienung ohne Display/Drehgeber)
+//    setup()  -> Speicher starten, alle Module einmal initialisieren (begin()),
+//                Router + Serial-Konsole verdrahten.
+//    loop()   -> allen Modulen staendig update() geben + die Serial-Konsole
+//                bedienen (Bedienung ohne Display/Drehgeber/Handy).
+//
+//  Befehle (Serial Monitor, Handy, spaeter Menue) laufen alle ueber EINEN Weg:
+//    SerialConsole -> CommandRouter.dispatch() -> Module.handleCommand().
 //
 //  Fehlt ein Bauteil, laeuft trotzdem alles andere weiter (ARBEITSWEISE.md §6).
-//
-//  HINWEIS: Dies ist ein GERUEST. NFC ist als erster Grundtest direkt
-//  eingebunden; die TODO-markierten Bereiche folgen mit den weiteren Modulen.
 // ============================================================================
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include "config.h"
 #include "storage/StorageService.h"
+#include "core/CommandRouter.h"
+#include "console/SerialConsole.h"
 #include "modules/nfc/NfcModule.h"
-
-// --- Erstes implementiertes Modul ---
-// #include "modules/display/DisplayModule.h"
-// #include "modules/input/InputModule.h"
-// #include "modules/ir/IrModule.h"
-// #include "modules/jammer/JammerModule.h"
-// #include "core/ModeManager.h"
-// #include "core/CommandRouter.h"
-// #include "core/MenuController.h"
-// #include "network/NetworkManager.h"
-// #include "console/SerialConsole.h"   // stellt das globale Objekt "Console" bereit
+#include "modules/ir/IrModule.h"
 
 // --- Globale Objekte (ein Exemplar pro Modul) ---
-// DisplayModule display;
-// InputModule   input;
 NfcModule nfc;
-// IrModule      ir;
-// JammerModule  jammer;
-// ModeManager   mode;          // kennt alle Module, fuehrt Automatik aus
-// CommandRouter router;        // EIN Weg fuer alle Befehle (Menue, Handy, Serial)
-// MenuController menu;         // Menue-Logik; Ausgabe auf Display UND Serial
-// NetworkManager net;          // WLAN-AP + Webserver + WebSocket
+IrModule  ir;
 
-// Alle Module in einer Liste, damit loop() sie einheitlich durchlaufen kann.
-// Module* modules[] = { &display, &input, &nfc, &ir, &jammer };
+// Alle Module in EINER Liste, damit setup()/loop() sie einheitlich durchlaufen.
+Module* modules[] = { &nfc, &ir };
+static const size_t MODULE_COUNT = sizeof(modules) / sizeof(modules[0]);
 
-// --- TEST: On-Board-LED blinken lassen ------------------------------------
-// Zeigt, dass Ordnerstruktur, ESP-IDF-Build und Arduino-Komponente
-// funktionieren. Nicht blockierend (millis statt delay), damit es spaeter
-// neben den Modulen weiterlaufen kann. Entfernen, sobald echte Module laufen.
-static unsigned long lastBlink = 0;
-static bool ledOn = false;
-
-static void blinkUpdate() {
-  if (millis() - lastBlink < LED_BLINK_MS) return;
-  lastBlink = millis();
-  ledOn = !ledOn;
-  digitalWrite(PIN_LED_BUILTIN, ledOn ? HIGH : LOW);
-  Serial.println(ledOn ? "[test] LED an" : "[test] LED aus");
-}
-// --------------------------------------------------------------------------
-
-// --- Vorlaeufige Serial-Befehle (bis die echte Konsole steht) --------------
-// Im Serial Monitor einen Befehl + Enter tippen: read | emulate | stop | clear
-// Alles landet in nfc.handleCommand() - genau dem Weg, den spaeter auch Menue,
-// Handy und die richtige Konsole nutzen. Nicht blockierend.
-static void pollSerialCommands() {
-  static String line;
-  while (Serial.available()) {
-    char c = (char)Serial.read();
-    if (c == '\n' || c == '\r') {
-      line.trim();
-      if (line.length() > 0) {
-        JsonDocument params;  // leer: read/emulate/stop/clear brauchen keine
-        bool ok = nfc.handleCommand(line, params.to<JsonObject>());
-        Serial.print(ok ? "[cmd] angenommen: " : "[cmd] unbekannt/abgelehnt: ");
-        Serial.println(line);
-      }
-      line = "";
-    } else if (line.length() < 32) {
-      line += c;
-    }
-  }
-}
+CommandRouter router;  // ein Weg fuer alle Befehle
 
 void setup() {
   Serial.begin(115200);
   Serial.println("\n[OrcaOne] Start...");
 
-  pinMode(PIN_LED_BUILTIN, OUTPUT);   // TEST: On-Board-LED
+  // Zentraler Speicher-Dienst: waehlt SD (falls Karte) sonst RAM.
+  // Muss VOR den Modulen laufen, damit sie direkt speichern koennen.
+  Storage.begin();
 
-  Storage.begin();  // Zentraler Speicher-Dienst: waehlt SD (falls Karte) sonst RAM.
-                    // Muss VOR den Modulen laufen, damit sie direkt speichern koennen.
+  // Alle Module einmal initialisieren.
+  for (Module* m : modules) m->begin();
 
-  nfc.begin();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
+  // Befehls-Verteiler kennt alle Module; die Konsole nutzt ihn.
+  router.begin(modules, MODULE_COUNT);
+  Console.begin(&router);
 
-  // TODO: uebrige Module initialisieren und danach auch NFC ueber die Liste starten.
-  // for (Module* m : modules) m->begin();
-
-  // TODO: Befehls-Verteiler kennt alle Module + ModeManager.
-  // router.begin(modules, sizeof(modules)/sizeof(modules[0]), &mode);
-
-  // TODO: Menue, Netzwerk und Serial-Konsole nutzen alle denselben Router.
-  // menu.begin(&router, &display);
-  // net.begin(&router);
-  // Console.begin(&router, &menu);
-
-  Serial.println("[OrcaOne] Bereit.");
+  Serial.println("[OrcaOne] Bereit. 'help' fuer Befehle.");
 }
 
 void loop() {
-  //blinkUpdate();   // TEST: On-Board-LED
+  // Allen Modulen Rechenzeit geben (nicht-blockierend, siehe core/README.md).
+  for (Module* m : modules) m->update();
 
-  pollSerialCommands();  // Vorlaeufig: read/emulate/stop/clear ueber Serial Monitor.
-  nfc.update();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
-
-  // TODO: uebrigen Modulen Rechenzeit geben und danach auch NFC ueber die Liste updaten.
-  // for (Module* m : modules) m->update();
-
-  // TODO: Automatik-Regeln auswerten (nur aktiv, wenn Modus == auto)
-  // mode.update();
-
-  // TODO: Drehgeber-Ereignisse ans Menue geben (die Konsole tut dasselbe
-  //       mit up/down/ok/back - beide Wege landen in menu.handleInput()).
-  // InputEvent e = input.poll();
-  // if (e != InputEvent::None) menu.handleInput(e);
-
-  // TODO: Netzwerk bedienen + regelmaessig Status ans Handy schicken
-  // net.update();
-
-  // TODO: Eingaben aus dem Serial Monitor verarbeiten (nicht blockierend)
-  // Console.update();
+  // Eingaben aus dem Serial Monitor verarbeiten (nicht blockierend).
+  Console.update();
 
   delay(1);  // Gibt dem Idle-Task Zeit und verhindert Watchdog-Ausloesungen.
 }

@@ -22,7 +22,7 @@ Weboberfläche aktualisiert damit ihre Anzeige.
   "mode": "manual",
   "modules": {
     "nfc":    { "ok": true, "ready": true, "lastUid": "04A1B2C3", "tagPresent": false, "stored": 1 },
-    "ir":     { "ok": true, "recording": false, "lastProtocol": "NEC", "slots": [true, false, false] },
+    "ir":     { "ok": true, "state": "idle", "slots": 0, "newest": 0, "hasShutoff": false },
     "jammer": { "ok": false, "active": false },
     "display":{ "ok": true },
     "input":  { "ok": true }
@@ -61,10 +61,10 @@ Die Weboberfläche sendet bei Nutzeraktionen ein Befehls-JSON:
 | `nfc` | `read` | – | Tag einlesen |
 | `nfc` | `write` | `{ "slot": n }` | Daten auf Tag schreiben |
 | `nfc` | `clone` | – | lesen + zum Schreiben vormerken |
-| `ir` | `record` | `{ "slot": n }` | IR-Signal in Slot aufnehmen |
-| `ir` | `send` | `{ "slot": n }` | IR-Signal aus Slot senden |
-| `ir` | `shutoff` | – | [E] Hersteller-Ausschaltcodes nacheinander senden |
-| `ir` | `stop` | – | Aufnahme oder Shut-Off-Sequenz abbrechen |
+| `ir` | `record` | – | Aufnahme starten: alle Signale bis `stop` in einen neuen Ringpuffer-Slot |
+| `ir` | `send` | `{ "slot": n }` *(optional)* | Slot zufällig in Dauerschleife senden; ohne `slot` den neuesten |
+| `ir` | `shutoff` | – | [E] Ausschalt-Codeliste (SD) in Dauerschleife senden, bis `stop` |
+| `ir` | `stop` | – | Aufnahme / Senden / Ausschalt-Sequenz beenden |
 | `jammer` | `start` / `stop` | – | 2,4-GHz-Modul an/aus (abgestimmter Rahmen) |
 
 > Diese Tabelle wächst mit den Modulen. Neue Befehle hier eintragen **und** im
