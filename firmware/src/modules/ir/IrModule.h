@@ -2,11 +2,13 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <vector>
+#include <utility>
 #include <IRremoteESP8266.h>
 #include <IRrecv.h>
 #include <IRsend.h>
 #include <IRutils.h>
 #include "../../core/Module.h"
+#include "../../config.h"  // IR_RAM_SLOT_COUNT u. a. (Member-Initialisierer unten)
 
 // ============================================================================
 //  IrModule - Infrarot als Stoerwerkzeug ("IR-Jammer")
