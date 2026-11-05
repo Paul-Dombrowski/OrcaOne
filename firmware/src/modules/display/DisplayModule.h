@@ -4,6 +4,8 @@
 #include "../../core/InputEvent.h"
 #include <u8g2.h>
 
+class CommandRouter;
+
 class DisplayModule : public Module {
 public:
   enum Screen {
@@ -13,22 +15,42 @@ public:
     S_SPRINGEN,
     S_LADEN,
     S_INFO,
-    S_PLATZHALTER
+    S_PLATZHALTER,
+    S_NFC_MENU,
+    S_NFC_WRITE_MENU,
+    S_IR_MENU,
+    S_IR_SEND_MENU,
+    S_JAMMER_MENU,
+    S_MODE_MENU,
+    S_INFO_MENU,
+    S_INFO_WIFI,
+    S_INFO_DEVICES,
+    S_MESSAGE
   };
 
   struct MenuEntry {
     const char* label;
     Screen target;
+    const char* module = nullptr;
+    const char* action = nullptr;
+    int slot = 0;
+    const char* value = nullptr;
   };
 
   const char* name() const override { return "display"; }
   void begin() override;
   void update() override;
+  void setCommandRouter(CommandRouter* router) { _router = router; }
   void handleInput(InputEvent event);
   void statusJson(JsonObject obj) override;
   bool handleCommand(const String& action, JsonObjectConst params) override;
 
 private:
+  static constexpr int kMenuStateCount = 9;
+  bool isMenuScreen(Screen screen) const;
+  int menuIndex(Screen screen) const;
+  Screen parentMenu(Screen screen) const;
+  void activateMenuEntry(const MenuEntry& entry);
   int roundPixel(float value) const;
   float bodyAngle(float heading, float curl, float wiggle, float phase, float s) const;
   void buildSpine(float tailX, float tailY, float heading, float curl,
@@ -40,6 +62,8 @@ private:
   const MenuEntry* menuFor(Screen screen, int& count) const;
   void drawMenu();
   void drawPlatzhalter();
+  void drawInfoPage();
+  void drawMessage();
   void drawWaterLine(float phase);
   void initBubbles();
   void drawBubbles();
@@ -70,7 +94,10 @@ private:
   float _jumpProgress = 0;
   float _loadAngle = 0;
   unsigned long _loadStart = 0;
-  int _sel[2]{};
-  int _off[2]{};
+  int _sel[kMenuStateCount]{};
+  int _off[kMenuStateCount]{};
   Screen _returnTo = S_MENU;
+  CommandRouter* _router = nullptr;
+  String _message;
+  unsigned long _messageUntil = 0;
 };

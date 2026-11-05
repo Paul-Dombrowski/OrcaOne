@@ -57,6 +57,15 @@ void SerialConsole::handleLine(const String& line) {
 }
 
 void SerialConsole::dispatchText(const String& line) {
+  if (line == "up" || line == "down" || line == "ok" || line == "back") {
+    JsonDocument params;
+    const bool accepted =
+        _router->dispatch("input", line, params.to<JsonObject>());
+    Serial.printf("[input] %s: %s\n", line.c_str(),
+                  accepted ? "OK" : "abgelehnt");
+    return;
+  }
+
   String module, action;
   JsonDocument doc;
   JsonObject params = doc.to<JsonObject>();

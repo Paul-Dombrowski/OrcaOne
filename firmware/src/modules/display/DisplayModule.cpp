@@ -1,6 +1,7 @@
 #include "DisplayModule.h"
 
 #include "../../config.h"
+#include "../../core/CommandRouter.h"
 #include <Wire.h>
 #include <math.h>
 #include <stdio.h>
@@ -73,7 +74,7 @@ void DisplayModule::begin() {
 void DisplayModule::update() {
   if (!_ok) return;
 
-  if (_screen == S_MENU || _screen == S_ORCA_MENU) {
+  if (isMenuScreen(_screen)) {
     if (_needsRedraw) {
       _needsRedraw = false;
       drawMenu();
@@ -81,10 +82,23 @@ void DisplayModule::update() {
     return;
   }
 
-  if (_screen == S_PLATZHALTER) {
+  if (_screen == S_PLATZHALTER || _screen == S_INFO_WIFI ||
+      _screen == S_INFO_DEVICES) {
     if (_needsRedraw) {
       _needsRedraw = false;
-      drawPlatzhalter();
+      if (_screen == S_PLATZHALTER) drawPlatzhalter();
+      else drawInfoPage();
+    }
+    return;
+  }
+
+  if (_screen == S_MESSAGE) {
+    if (_needsRedraw) {
+      _needsRedraw = false;
+      drawMessage();
+    }
+    if (static_cast<long>(millis() - _messageUntil) >= 0) {
+      startScreen(_returnTo);
     }
     return;
   }
@@ -113,29 +127,37 @@ void DisplayModule::update() {
 void DisplayModule::handleInput(InputEvent event) {
   if (!_ok || event == InputEvent::None) return;
 
-  if (_screen == S_MENU || _screen == S_ORCA_MENU) {
-    const int menuIndex = _screen == S_ORCA_MENU ? 1 : 0;
+  if (isMenuScreen(_screen)) {
+    const int index = menuIndex(_screen);
     int count = 0;
     const MenuEntry* entries = menuFor(_screen, count);
     if (entries == nullptr || count == 0) return;
 
     if (event == InputEvent::Up) {
-      _sel[menuIndex] = (_sel[menuIndex] + count - 1) % count;
+      _sel[index] = (_sel[index] + count - 1) % count;
       _needsRedraw = true;
     } else if (event == InputEvent::Down) {
-      _sel[menuIndex] = (_sel[menuIndex] + 1) % count;
+      _sel[index] = (_sel[index] + 1) % count;
       _needsRedraw = true;
     } else if (event == InputEvent::Click) {
-      startScreen(entries[_sel[menuIndex]].target);
-    } else if (event == InputEvent::LongPress && _screen == S_ORCA_MENU) {
-      startScreen(S_MENU);
+      activateMenuEntry(entries[_sel[index]]);
+    } else if (event == InputEvent::LongPress && _screen != S_MENU) {
+      startScreen(parentMenu(_screen));
     }
     if (event == InputEvent::Up || event == InputEvent::Down) {
-      if (_sel[menuIndex] < _off[menuIndex]) {
-        _off[menuIndex] = _sel[menuIndex];
-      } else if (_sel[menuIndex] >= _off[menuIndex] + kVisibleMenuRows) {
-        _off[menuIndex] = _sel[menuIndex] - kVisibleMenuRows + 1;
+      if (_sel[index] < _off[index]) {
+        _off[index] = _sel[index];
+      } else if (_sel[index] >= _off[index] + kVisibleMenuRows) {
+        _off[index] = _sel[index] - kVisibleMenuRows + 1;
       }
+    }
+    return;
+  }
+
+  if (_screen == S_MESSAGE || _screen == S_PLATZHALTER ||
+      _screen == S_INFO_WIFI || _screen == S_INFO_DEVICES) {
+    if (event == InputEvent::LongPress || event == InputEvent::Click) {
+      startScreen(_returnTo);
     }
     return;
   }
@@ -153,12 +175,12 @@ void DisplayModule::handleInput(InputEvent event) {
 void DisplayModule::statusJson(JsonObject obj) {
   obj["ok"] = _ok;
   obj["screen"] = screenName();
-  const int menuIndex = _screen == S_ORCA_MENU
-                            ? 1
-                            : (_screen == S_MENU || _returnTo == S_MENU ? 0 : 1);
-  obj["selection"] = _sel[menuIndex];
-  obj["menuOffset"] = _off[menuIndex];
+  const Screen selectedMenu = isMenuScreen(_screen) ? _screen : _returnTo;
+  const int index = menuIndex(selectedMenu);
+  obj["selection"] = index >= 0 ? _sel[index] : 0;
+  obj["menuOffset"] = index >= 0 ? _off[index] : 0;
   obj["swimSpeed"] = _swimSpeed;
+  if (_message.length() > 0) obj["message"] = _message;
 }
 
 bool DisplayModule::handleCommand(const String& action, JsonObjectConst params) {
@@ -283,13 +305,96 @@ void DisplayModule::drawOrca(float tailX, float tailY, float heading, int side,
   u8g2_DrawPixel(&_display, eyeX, eyeY);
 }
 
+bool DisplayModule::isMenuScreen(Screen screen) const {
+  return screen == S_MENU || screen == S_NFC_MENU ||
+         screen == S_NFC_WRITE_MENU || screen == S_IR_MENU ||
+         screen == S_IR_SEND_MENU || screen == S_JAMMER_MENU ||
+         screen == S_MODE_MENU || screen == S_INFO_MENU ||
+         screen == S_ORCA_MENU;
+}
+
+int DisplayModule::menuIndex(Screen screen) const {
+  switch (screen) {
+    case S_MENU: return 0;
+    case S_NFC_MENU: return 1;
+    case S_NFC_WRITE_MENU: return 2;
+    case S_IR_MENU: return 3;
+    case S_IR_SEND_MENU: return 4;
+    case S_JAMMER_MENU: return 5;
+    case S_MODE_MENU: return 6;
+    case S_INFO_MENU: return 7;
+    case S_ORCA_MENU: return 8;
+    default: return -1;
+  }
+}
+
+DisplayModule::Screen DisplayModule::parentMenu(Screen screen) const {
+  switch (screen) {
+    case S_NFC_MENU:
+    case S_IR_MENU:
+    case S_JAMMER_MENU:
+    case S_MODE_MENU:
+    case S_INFO_MENU:
+    case S_ORCA_MENU:
+      return S_MENU;
+    case S_NFC_WRITE_MENU:
+      return S_NFC_MENU;
+    case S_IR_SEND_MENU:
+      return S_IR_MENU;
+    default:
+      return S_MENU;
+  }
+}
+
 const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
                                                        int& count) const {
   static const MenuEntry mainMenu[] = {
-      {"Infrarot", S_PLATZHALTER},
-      {"Jammer", S_PLATZHALTER},
-      {"NFC", S_PLATZHALTER},
+      {"NFC / RFID", S_NFC_MENU},
+      {"Infrarot", S_IR_MENU},
+      {"2,4 GHz", S_JAMMER_MENU},
+      {"Modus", S_MODE_MENU},
+      {"Info", S_INFO_MENU},
       {"Orca", S_ORCA_MENU},
+  };
+  static const MenuEntry nfcMenu[] = {
+      {"Lesen", S_NFC_MENU, "nfc", "read"},
+      {"Schreiben", S_NFC_WRITE_MENU},
+      {"Klonen", S_NFC_MENU, "nfc", "clone"},
+      {"Zurueck", S_MENU},
+  };
+  static const MenuEntry nfcWriteMenu[] = {
+      {"Schreiben Slot 1", S_NFC_WRITE_MENU, "nfc", "write", 1},
+      {"Schreiben Slot 2", S_NFC_WRITE_MENU, "nfc", "write", 2},
+      {"Schreiben Slot 3", S_NFC_WRITE_MENU, "nfc", "write", 3},
+      {"Zurueck", S_NFC_MENU},
+  };
+  static const MenuEntry irMenu[] = {
+      {"Aufnehmen", S_IR_MENU, "ir", "record"},
+      {"Senden", S_IR_SEND_MENU},
+      {"Ausschalten", S_IR_MENU, "ir", "shutoff"},
+      {"Stop", S_IR_MENU, "ir", "stop"},
+      {"Zurueck", S_MENU},
+  };
+  static const MenuEntry irSendMenu[] = {
+      {"Senden Slot 1", S_IR_SEND_MENU, "ir", "send", 1},
+      {"Senden Slot 2", S_IR_SEND_MENU, "ir", "send", 2},
+      {"Senden Slot 3", S_IR_SEND_MENU, "ir", "send", 3},
+      {"Zurueck", S_IR_MENU},
+  };
+  static const MenuEntry jammerMenu[] = {
+      {"Start", S_JAMMER_MENU, "jammer", "start"},
+      {"Stop", S_JAMMER_MENU, "jammer", "stop"},
+      {"Zurueck", S_MENU},
+  };
+  static const MenuEntry modeMenu[] = {
+      {"Automatik AN", S_MODE_MENU, "system", "setMode", 0, "auto"},
+      {"Automatik AUS", S_MODE_MENU, "system", "setMode", 0, "manual"},
+      {"Zurueck", S_MENU},
+  };
+  static const MenuEntry infoMenu[] = {
+      {"WLAN / IP-Adresse", S_INFO_WIFI},
+      {"Verbundene Geraete", S_INFO_DEVICES},
+      {"Zurueck", S_MENU},
   };
   static const MenuEntry orcaMenu[] = {
       {"Schwimmen", S_SCHWIMMEN},
@@ -299,31 +404,83 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
       {"Zurueck", S_MENU},
   };
 
-  if (screen == S_MENU) {
-    count = sizeof(mainMenu) / sizeof(mainMenu[0]);
-    return mainMenu;
+  switch (screen) {
+    case S_MENU:
+      count = sizeof(mainMenu) / sizeof(mainMenu[0]);
+      return mainMenu;
+    case S_NFC_MENU:
+      count = sizeof(nfcMenu) / sizeof(nfcMenu[0]);
+      return nfcMenu;
+    case S_NFC_WRITE_MENU:
+      count = sizeof(nfcWriteMenu) / sizeof(nfcWriteMenu[0]);
+      return nfcWriteMenu;
+    case S_IR_MENU:
+      count = sizeof(irMenu) / sizeof(irMenu[0]);
+      return irMenu;
+    case S_IR_SEND_MENU:
+      count = sizeof(irSendMenu) / sizeof(irSendMenu[0]);
+      return irSendMenu;
+    case S_JAMMER_MENU:
+      count = sizeof(jammerMenu) / sizeof(jammerMenu[0]);
+      return jammerMenu;
+    case S_MODE_MENU:
+      count = sizeof(modeMenu) / sizeof(modeMenu[0]);
+      return modeMenu;
+    case S_INFO_MENU:
+      count = sizeof(infoMenu) / sizeof(infoMenu[0]);
+      return infoMenu;
+    case S_ORCA_MENU:
+      count = sizeof(orcaMenu) / sizeof(orcaMenu[0]);
+      return orcaMenu;
+    default:
+      count = 0;
+      return nullptr;
   }
-  if (screen == S_ORCA_MENU) {
-    count = sizeof(orcaMenu) / sizeof(orcaMenu[0]);
-    return orcaMenu;
+}
+
+void DisplayModule::activateMenuEntry(const MenuEntry& entry) {
+  if (entry.module == nullptr || entry.action == nullptr) {
+    if (entry.target == S_INFO_WIFI || entry.target == S_INFO_DEVICES) {
+      _returnTo = _screen;
+    }
+    startScreen(entry.target);
+    return;
   }
-  count = 0;
-  return nullptr;
+
+  bool accepted = false;
+  if (_router != nullptr) {
+    JsonDocument params;
+    JsonObject arguments = params.to<JsonObject>();
+    if (entry.slot > 0) arguments["slot"] = entry.slot;
+    if (entry.value != nullptr) arguments["mode"] = entry.value;
+    accepted = _router->dispatch(entry.module, entry.action, arguments);
+  } else {
+    Serial.println("[display] Befehl kann nicht weitergeleitet werden: Router fehlt.");
+  }
+
+  _returnTo = _screen;
+  _message = accepted ? "Aktion ausgefuehrt" : "Aktion abgelehnt";
+  if (!accepted) {
+    Serial.printf("[display] %s.%s wurde abgelehnt.\n", entry.module,
+                  entry.action);
+  }
+  _messageUntil = millis() + 1800;
+  startScreen(S_MESSAGE);
 }
 
 void DisplayModule::drawMenu() {
-  const int menuIndex = _screen == S_ORCA_MENU ? 1 : 0;
+  const int index = menuIndex(_screen);
   int count = 0;
   const MenuEntry* entries = menuFor(_screen, count);
-  if (entries == nullptr) return;
+  if (index < 0 || entries == nullptr) return;
 
   u8g2_ClearBuffer(&_display);
   u8g2_SetFont(&_display, u8g2_font_6x12_tr);
-  for (int i = 0; i < kVisibleMenuRows; ++i) {
-    const int entryIndex = _off[menuIndex] + i;
+  for (int row = 0; row < kVisibleMenuRows; ++row) {
+    const int entryIndex = _off[index] + row;
     if (entryIndex >= count) break;
-    const int y = i * 16;
-    if (entryIndex == _sel[menuIndex]) {
+    const int y = row * 16;
+    if (entryIndex == _sel[index]) {
       u8g2_DrawBox(&_display, 0, y, 128, 15);
       u8g2_SetDrawColor(&_display, 0);
       u8g2_DrawStr(&_display, 6, y + 11, entries[entryIndex].label);
@@ -341,6 +498,28 @@ void DisplayModule::drawPlatzhalter() {
   u8g2_SetFont(&_display, u8g2_font_6x10_tr);
   u8g2_DrawStr(&_display, 2, 20, "Folgt");
   u8g2_DrawStr(&_display, 2, 42, "Taste = zurueck");
+  u8g2_SendBuffer(&_display);
+}
+
+void DisplayModule::drawInfoPage() {
+  u8g2_ClearBuffer(&_display);
+  u8g2_SetFont(&_display, u8g2_font_6x10_tr);
+  if (_screen == S_INFO_WIFI) {
+    u8g2_DrawStr(&_display, 2, 18, "WLAN / IP");
+    u8g2_DrawStr(&_display, 2, 34, "Netzwerk folgt");
+  } else {
+    u8g2_DrawStr(&_display, 2, 18, "Verbundene Geraete");
+    u8g2_DrawStr(&_display, 2, 34, "Netzwerk folgt");
+  }
+  u8g2_DrawStr(&_display, 2, 54, "Taste = zurueck");
+  u8g2_SendBuffer(&_display);
+}
+
+void DisplayModule::drawMessage() {
+  u8g2_ClearBuffer(&_display);
+  u8g2_SetFont(&_display, u8g2_font_6x10_tr);
+  u8g2_DrawStr(&_display, 2, 24, _message.c_str());
+  u8g2_DrawStr(&_display, 2, 48, "Taste = zurueck");
   u8g2_SendBuffer(&_display);
 }
 
@@ -458,10 +637,10 @@ void DisplayModule::drawInfo() {
 }
 
 void DisplayModule::startScreen(Screen screen) {
-  if (screen != S_MENU && screen != S_ORCA_MENU &&
-      (_screen == S_MENU || _screen == S_ORCA_MENU)) {
+  if (!isMenuScreen(screen) && isMenuScreen(_screen)) {
     _returnTo = _screen;
   }
+  if (screen != S_MESSAGE) _message = "";
   _screen = screen;
   _lastFrame = 0;
   _needsRedraw = true;
@@ -476,6 +655,16 @@ const char* DisplayModule::screenName() const {
   switch (_screen) {
     case S_MENU: return "menu";
     case S_ORCA_MENU: return "orca-menu";
+    case S_NFC_MENU: return "nfc-menu";
+    case S_NFC_WRITE_MENU: return "nfc-write-menu";
+    case S_IR_MENU: return "ir-menu";
+    case S_IR_SEND_MENU: return "ir-send-menu";
+    case S_JAMMER_MENU: return "jammer-menu";
+    case S_MODE_MENU: return "mode-menu";
+    case S_INFO_MENU: return "info-menu";
+    case S_INFO_WIFI: return "info-wifi";
+    case S_INFO_DEVICES: return "info-devices";
+    case S_MESSAGE: return "message";
     case S_SCHWIMMEN: return "swim";
     case S_SPRINGEN: return "jump";
     case S_LADEN: return "loading";
