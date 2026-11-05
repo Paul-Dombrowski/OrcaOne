@@ -3,7 +3,7 @@
 // Globales Objekt (genau hier definiert, anderswo via extern bekannt).
 SerialConsole Console;
 
-static const size_t LINE_MAX = 128;  // laengere Zeilen werden verworfen
+static const size_t kLineMax = 128;  // laengere Zeilen werden verworfen (LINE_MAX ist belegt)
 
 void SerialConsole::begin(CommandRouter* router) {
   _router = router;
@@ -31,7 +31,7 @@ void SerialConsole::update() {
       continue;  // CRLF erzeugt eine leere Folgezeile - die wird hier ignoriert
     }
 
-    if (_buf.length() >= LINE_MAX) {
+    if (_buf.length() >= kLineMax) {
       _overflow = true;  // Rest bis zum Zeilenende verwerfen
       continue;
     }
