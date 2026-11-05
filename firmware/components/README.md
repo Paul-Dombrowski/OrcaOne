@@ -97,6 +97,7 @@ idf_component_register(
 | `PN532/` | PN532-Kern-Treiber (Elechouse/Seeed) | `modules/nfc` |
 | `PN532_I2C/` | I2C-Transport für den PN532 | `modules/nfc` |
 | `NDEF/` | NDEF-Nachrichten lesen/schreiben (Don Coleman) | `modules/nfc` |
+| `RF24/` | nRF24L01+ Treiber für 2,4 GHz Jammer | `modules/jammer` |
 
 Beim Hinzufügen hier eine Zeile ergänzen.
 

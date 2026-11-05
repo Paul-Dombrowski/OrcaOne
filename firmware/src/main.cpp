@@ -19,6 +19,7 @@
 #include "config.h"
 #include "storage/StorageService.h"
 #include "modules/nfc/NfcModule.h"
+#include "modules/jammer/Jammer.h"
 
 // --- Erstes implementiertes Modul ---
 // #include "modules/display/DisplayModule.h"
@@ -36,7 +37,7 @@
 // InputModule   input;
 NfcModule nfc;
 // IrModule      ir;
-// JammerModule  jammer;
+JammerModule jammer;
 // ModeManager   mode;          // kennt alle Module, fuehrt Automatik aus
 // CommandRouter router;        // EIN Weg fuer alle Befehle (Menue, Handy, Serial)
 // MenuController menu;         // Menue-Logik; Ausgabe auf Display UND Serial
@@ -72,9 +73,35 @@ static void pollSerialCommands() {
     if (c == '\n' || c == '\r') {
       line.trim();
       if (line.length() > 0) {
-        JsonDocument params;  // leer: read/emulate/stop/clear brauchen keine
-        bool ok = nfc.handleCommand(line, params.to<JsonObject>());
-        Serial.print(ok ? "[cmd] angenommen: " : "[cmd] unbekannt/abgelehnt: ");
+        JsonDocument params;
+        String module = line;
+        String action = "";
+        const int splitPos = line.indexOf(' ');
+        if (splitPos >= 0) {
+          module = line.substring(0, splitPos);
+          action = line.substring(splitPos + 1);
+        }
+
+        bool ok = false;
+        if (module == "nfc") {
+          ok = nfc.handleCommand(action, params.to<JsonObject>());
+        } else if (module == "jammer") {
+          ok = jammer.handleCommand(action, params.to<JsonObject>());
+        } else if (module == "status") {
+          JsonDocument statusDoc;
+          JsonObject nfcStatus = statusDoc["nfc"].to<JsonObject>();
+          JsonObject jammerStatus = statusDoc["jammer"].to<JsonObject>();
+          nfc.statusJson(nfcStatus);
+          jammer.statusJson(jammerStatus);
+          serializeJsonPretty(statusDoc, Serial);
+          Serial.println();
+          ok = true;
+        } else {
+          ok = nfc.handleCommand(line, params.to<JsonObject>());
+        }
+
+        String display = ok ? "[cmd] angenommen: " : "[cmd] unbekannt/abgelehnt: ";
+        Serial.print(display);
         Serial.println(line);
       }
       line = "";
@@ -94,6 +121,7 @@ void setup() {
                     // Muss VOR den Modulen laufen, damit sie direkt speichern koennen.
 
   nfc.begin();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
+  jammer.begin();
 
   // TODO: uebrige Module initialisieren und danach auch NFC ueber die Liste starten.
   // for (Module* m : modules) m->begin();
@@ -114,6 +142,7 @@ void loop() {
 
   pollSerialCommands();  // Vorlaeufig: read/emulate/stop/clear ueber Serial Monitor.
   nfc.update();  // Vorlaeufiger NFC-Grundtest, bis die gemeinsame Modul-Liste steht.
+  jammer.update();
 
   // TODO: uebrigen Modulen Rechenzeit geben und danach auch NFC ueber die Liste updaten.
   // for (Module* m : modules) m->update();
