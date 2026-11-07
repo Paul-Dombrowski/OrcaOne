@@ -9,9 +9,10 @@ constexpr uint32_t kHopIntervalMs = 80;
 }
 
 JammerModule::JammerModule()
-    // 4 MHz statt Default 10 MHz: robuster bei langen Dupont-/Breadboard-Kabeln
-    // (haeufige Ursache fuer fehlschlagende NRF24-Erkennung).
-    : _radio(PIN_NRF_CE, PIN_NRF_CSN, 4000000) {}
+    // SPI-Default (10 MHz). Die Erkennung wurde durch die SPI-Init-Reihenfolge
+    // in main.cpp behoben, nicht durch einen langsameren Takt. Das Standalone-
+    // Sketch nutzt 16 MHz fuer schnellere setChannel()-Schreibzugriffe.
+    : _radio(PIN_NRF_CE, PIN_NRF_CSN) {}
 
 void JammerModule::begin() {
   _ok = false;
@@ -82,8 +83,10 @@ void JammerModule::updateHop() {
     }
   }
 
+  // Traeger laeuft bereits (einmalig in handleCommand "start" gestartet) -
+  // hier nur umstimmen. NICHT bei jedem Hop neu startConstCarrier() aufrufen,
+  // sonst wird der Traeger staendig neu aufgesetzt statt durchzulaufen.
   _radio.setChannel(_channel);
-  _radio.startConstCarrier(RF24_PA_MAX, _channel);
 }
 
 void JammerModule::statusJson(JsonObject obj) {
