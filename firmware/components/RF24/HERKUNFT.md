@@ -1,0 +1,5 @@
+- Quelle:      https://github.com/nRF24/RF24
+- Version:     master (commit 23f6a87a9ca0758b3a38964c460e3574c1eedcea)
+- Lizenz:      GPL-3.0
+- Geändert:    ja – für ESP32/ESP-IDF kompatibel eingebettet und auf das Modul-Muster angepasst
+- Genutzt von: firmware/src/modules/jammer

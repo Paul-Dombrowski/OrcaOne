@@ -98,6 +98,7 @@ idf_component_register(
 | `PN532_I2C/` | I2C-Transport für den PN532 | `modules/nfc` |
 | `NDEF/` | NDEF-Nachrichten lesen/schreiben (Don Coleman) | `modules/nfc` |
 | `IRremoteESP8266/` | IR empfangen/senden (crankyoldgit), Roh-Replay | `modules/ir` |
+| `RF24/` | NRF24L01+ über SPI (nRF24/TMRh20) | `modules/jammer` |
 
 Beim Hinzufügen hier eine Zeile ergänzen.
 
