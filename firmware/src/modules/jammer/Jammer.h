@@ -22,10 +22,12 @@ private:
   static void sweepTask(void* arg);
 
   bool _ok = false;
-  bool _active = false;
-  volatile bool _running = false;    // Laufsignal fuer den Sweep-Task
-  volatile uint8_t _channel = 45;    // aktueller Kanal (Task schreibt, Status liest)
-  volatile TaskHandle_t _taskHandle = nullptr;  // vom Task (anderer Core) genullt
+  // _active bleibt true, bis der Task wirklich ausgelaufen ist (der Task nullt
+  // es am Ende selbst). So blockiert die start-Guard ueberlappende Tasks bei
+  // schnellem stop->start. volatile: wird vom Task auf dem anderen Core gesetzt.
+  volatile bool _active = false;
+  volatile bool _running = false;   // Laufsignal an den Sweep-Task
+  volatile uint8_t _channel = 45;   // aktueller Kanal (Task schreibt, Status liest)
 
   RF24 _radio;
 };

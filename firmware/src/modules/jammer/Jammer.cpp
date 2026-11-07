@@ -1,5 +1,7 @@
 #include "Jammer.h"
 
+#include <SPI.h>
+
 #include "../../config.h"
 
 JammerModule::JammerModule()
@@ -73,9 +75,10 @@ void JammerModule::sweepTask(void* arg) {
   }
 
   // Sauberer Aus-Zustand: Traeger NUR hier (im Task-Kontext) abschalten, nie
-  // parallel aus stop()/loop() -> kein gleichzeitiger SPI-Zugriff.
+  // parallel aus stop()/loop() -> kein gleichzeitiger SPI-Zugriff. Erst danach
+  // _active freigeben, damit ein neuer start() nicht ueberlappend startet.
   self->_radio.stopConstCarrier();
-  self->_taskHandle = nullptr;
+  self->_active = false;
   vTaskDelete(nullptr);
 }
 
@@ -94,24 +97,30 @@ bool JammerModule::handleCommand(const String& action, JsonObjectConst params) {
   }
 
   if (action == "start") {
-    if (_active || _taskHandle != nullptr) {
-      // schon aktiv ODER ein vorheriger Task wickelt sich noch ab -> kein
-      // zweiter Task/Traeger (sonst gleichzeitiger SPI-Zugriff). Kurz erneut
-      // "start" senden, falls direkt nach "stop" aufgerufen.
+    if (_active) {
+      // schon aktiv (oder ein vorheriger Task laeuft noch aus) -> kein zweiter
+      // Task/Traeger, sonst gleichzeitiger SPI-Zugriff. Direkt nach "stop"
+      // ggf. "start" kurz erneut senden.
       return true;
     }
     _running = true;
     _active = true;
-    xTaskCreatePinnedToCore(&JammerModule::sweepTask, "jam",
-                            JAM_TASK_STACK, this, JAM_TASK_PRIORITY,
-                            &_taskHandle, JAM_TASK_CORE);
+    const BaseType_t ok =
+        xTaskCreatePinnedToCore(&JammerModule::sweepTask, "jam",
+                                JAM_TASK_STACK, this, JAM_TASK_PRIORITY,
+                                nullptr, JAM_TASK_CORE);
+    if (ok != pdPASS) {
+      _running = false;
+      _active = false;
+      Serial.println("[jammer] Task konnte nicht gestartet werden");
+      return false;
+    }
     Serial.println("[jammer] Störung aktiviert");
     return true;
   }
 
   if (action == "stop") {
-    _running = false;   // Task beendet sich selbst und schaltet den Traeger ab
-    _active = false;
+    _running = false;   // Task laeuft aus, schaltet Traeger ab und nullt _active
     Serial.println("[jammer] Störung deaktiviert");
     return true;
   }
