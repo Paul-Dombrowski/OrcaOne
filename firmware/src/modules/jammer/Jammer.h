@@ -2,6 +2,8 @@
 
 #include "../../core/Module.h"
 #include <RF24.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 class JammerModule : public Module {
 public:
@@ -14,13 +16,16 @@ public:
   bool handleCommand(const String& action, JsonObjectConst params) override;
 
 private:
-  void updateHop();
+  // Sweep-Task: schaltet den Traeger EINMAL an und stimmt dann das Band
+  // dauerhaft flat-out durch. Laeuft auf einem eigenen Core, damit loop()
+  // und die Serial-Konsole bedienbar bleiben (update() bleibt leer).
+  static void sweepTask(void* arg);
 
   bool _ok = false;
   bool _active = false;
-  bool _direction = true;
-  uint8_t _channel = 45;
-  uint32_t _lastHopMs = 0;
+  volatile bool _running = false;    // Laufsignal fuer den Sweep-Task
+  volatile uint8_t _channel = 45;    // aktueller Kanal (Task schreibt, Status liest)
+  volatile TaskHandle_t _taskHandle = nullptr;  // vom Task (anderer Core) genullt
 
   RF24 _radio;
 };

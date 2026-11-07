@@ -2,24 +2,17 @@
 
 #include "../../config.h"
 
-namespace {
-constexpr uint8_t kMinChannel = 2;
-constexpr uint8_t kMaxChannel = 79;
-constexpr uint32_t kHopIntervalMs = 80;
-}
-
 JammerModule::JammerModule()
-    // SPI-Default (10 MHz). Die Erkennung wurde durch die SPI-Init-Reihenfolge
-    // in main.cpp behoben, nicht durch einen langsameren Takt. Das Standalone-
-    // Sketch nutzt 16 MHz fuer schnellere setChannel()-Schreibzugriffe.
-    : _radio(PIN_NRF_CE, PIN_NRF_CSN) {}
+    // 16 MHz SPI (statt Default 10 MHz): schnellere setChannel()-Schreibzugriffe
+    // -> dichterer Sweep. Wert aus dem erprobten Standalone-Sketch. Bei
+    // Instabilitaet auf 10000000 reduzieren.
+    : _radio(PIN_NRF_CE, PIN_NRF_CSN, 16000000) {}
 
 void JammerModule::begin() {
   _ok = false;
   _active = false;
-  _direction = true;
+  _running = false;
   _channel = 45;
-  _lastHopMs = 0;
 
   pinMode(PIN_NRF_CE, OUTPUT);
   pinMode(PIN_NRF_CSN, OUTPUT);
@@ -32,12 +25,7 @@ void JammerModule::begin() {
   // SPI-Bus wird ZENTRAL in main.cpp (setup(), vor Storage.begin()) mit den
   // NRF-Pins initialisiert - hier NICHT erneut SPI.begin() aufrufen, sonst
   // greift der SPIClass-Erstzugriff ins Leere (if(_spi) return true;).
-  const bool started = _radio.begin(&SPI);
-  // DIAGNOSE: isChipConnected() liest ein Register zurueck. =0 -> SPI spricht
-  // gar nicht (Leitung/Strom); =1 bei started=0 -> eher Konfig/Takt.
-  Serial.printf("[jammer] begin()=%d  isChipConnected()=%d\n",
-                started, _radio.isChipConnected());
-  if (!started) {
+  if (!_radio.begin(&SPI)) {
     Serial.println("[jammer] Keine SPI-Antwort vom NRF24 - Modul inaktiv");
     return;
   }
@@ -57,38 +45,38 @@ void JammerModule::begin() {
 }
 
 void JammerModule::update() {
-  if (!_ok || !_active) {
-    return;
-  }
-
-  const uint32_t now = millis();
-  if (now - _lastHopMs < kHopIntervalMs) {
-    return;
-  }
-
-  _lastHopMs = now;
-  updateHop();
+  // Die Stoerlogik laeuft im Sweep-Task (siehe sweepTask), NICHT hier.
+  // update() muss nicht-blockierend sein (ARBEITSWEISE §6) - daher leer.
 }
 
-void JammerModule::updateHop() {
-  if (_direction) {
-    _channel += 2;
-    if (_channel >= kMaxChannel) {
-      _channel = kMaxChannel;
-      _direction = false;
+void JammerModule::sweepTask(void* arg) {
+  auto* self = static_cast<JammerModule*>(arg);
+
+  // Traeger EINMAL anschalten, danach nur noch den Kanal umstimmen (wie im
+  // erprobten Standalone). NICHT pro Kanal neu starten.
+  self->_radio.startConstCarrier(RF24_PA_MAX, self->_channel);
+
+  uint32_t lastYield = millis();
+  while (self->_running) {
+    for (uint8_t ch = JAM_CH_MIN; ch <= JAM_CH_MAX; ++ch) {
+      self->_radio.setChannel(ch);   // flat-out umstimmen, kein Delay
     }
-  } else {
-    _channel -= 2;
-    if (_channel <= kMinChannel) {
-      _channel = kMinChannel;
-      _direction = true;
+    self->_channel = JAM_CH_MAX;
+
+    // Kurz yielden, damit der Idle-Task auf diesem Core laeuft und den
+    // Task-Watchdog bedient. ~<2 % Sendezeit, HF-technisch vernachlaessigbar
+    // (der Standalone yieldet effektiv einmal pro loop()-Durchlauf).
+    if (millis() - lastYield >= JAM_WDT_YIELD_MS) {
+      vTaskDelay(1);
+      lastYield = millis();
     }
   }
 
-  // Traeger laeuft bereits (einmalig in handleCommand "start" gestartet) -
-  // hier nur umstimmen. NICHT bei jedem Hop neu startConstCarrier() aufrufen,
-  // sonst wird der Traeger staendig neu aufgesetzt statt durchzulaufen.
-  _radio.setChannel(_channel);
+  // Sauberer Aus-Zustand: Traeger NUR hier (im Task-Kontext) abschalten, nie
+  // parallel aus stop()/loop() -> kein gleichzeitiger SPI-Zugriff.
+  self->_radio.stopConstCarrier();
+  self->_taskHandle = nullptr;
+  vTaskDelete(nullptr);
 }
 
 void JammerModule::statusJson(JsonObject obj) {
@@ -106,16 +94,24 @@ bool JammerModule::handleCommand(const String& action, JsonObjectConst params) {
   }
 
   if (action == "start") {
+    if (_active || _taskHandle != nullptr) {
+      // schon aktiv ODER ein vorheriger Task wickelt sich noch ab -> kein
+      // zweiter Task/Traeger (sonst gleichzeitiger SPI-Zugriff). Kurz erneut
+      // "start" senden, falls direkt nach "stop" aufgerufen.
+      return true;
+    }
+    _running = true;
     _active = true;
-    _lastHopMs = 0;
-    _radio.startConstCarrier(RF24_PA_MAX, _channel);
+    xTaskCreatePinnedToCore(&JammerModule::sweepTask, "jam",
+                            JAM_TASK_STACK, this, JAM_TASK_PRIORITY,
+                            &_taskHandle, JAM_TASK_CORE);
     Serial.println("[jammer] Störung aktiviert");
     return true;
   }
 
   if (action == "stop") {
+    _running = false;   // Task beendet sich selbst und schaltet den Traeger ab
     _active = false;
-    _radio.stopConstCarrier();
     Serial.println("[jammer] Störung deaktiviert");
     return true;
   }

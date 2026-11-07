@@ -64,6 +64,14 @@
 #define PIN_NRF_CE        17
 #define PIN_NRF_CSN        5
 
+// ---- Jammer (NRF24 Sweep-Task) ----
+#define JAM_CH_MIN            0   // unterste NRF-Kanalnummer im Sweep
+#define JAM_CH_MAX           79   // oberste NRF-Kanalnummer (deckt 2,4-GHz-Band)
+#define JAM_TASK_CORE         0   // eigener Core; loop()/Konsole laufen auf Core 1
+#define JAM_TASK_STACK     4096   // Bytes Stack fuer den Sweep-Task (ESP-IDF: Bytes)
+#define JAM_TASK_PRIORITY     1   // moderat: System-Tasks duerfen vordraengen
+#define JAM_WDT_YIELD_MS     50   // nach so vielen ms kurz yielden (Idle/Watchdog)
+
 // ---- Micro-SD (Add-on, SPI, teilt Bus mit NRF24; eigener CS-Pin) ----
 // Vom Speicher-Dienst (storage/) genutzt. Muss ein ANDERER Pin sein als
 // PIN_NRF_CSN (5). Am D1 R32 vor dem Hardware-Aufbau verifizieren.
