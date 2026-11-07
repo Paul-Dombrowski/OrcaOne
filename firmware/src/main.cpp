@@ -16,19 +16,22 @@
 //  Fehlt ein Bauteil, laeuft trotzdem alles andere weiter (ARBEITSWEISE.md §6).
 // ============================================================================
 #include <Arduino.h>
+#include <SPI.h>
 #include "config.h"
 #include "storage/StorageService.h"
 #include "core/CommandRouter.h"
 #include "console/SerialConsole.h"
 #include "modules/nfc/NfcModule.h"
 #include "modules/ir/IrModule.h"
+#include "modules/jammer/Jammer.h"
 
 // --- Globale Objekte (ein Exemplar pro Modul) ---
 NfcModule nfc;
 IrModule  ir;
+JammerModule jammer;
 
 // Alle Module in EINER Liste, damit setup()/loop() sie einheitlich durchlaufen.
-Module* modules[] = { &nfc, &ir };
+Module* modules[] = { &nfc, &ir, &jammer };
 static const size_t MODULE_COUNT = sizeof(modules) / sizeof(modules[0]);
 
 CommandRouter router;  // ein Weg fuer alle Befehle
@@ -36,6 +39,14 @@ CommandRouter router;  // ein Weg fuer alle Befehle
 void setup() {
   Serial.begin(115200);
   Serial.println("\n[OrcaOne] Start...");
+
+  // SPI-Bus ZENTRAL und als ERSTES mit den NRF24-Pins initialisieren.
+  // Grund: SPIClass::begin() kehrt beim zweiten Aufruf vorzeitig zurueck
+  // (if(_spi) return true;) - der ERSTE Aufrufer legt die Pins fest. Liefe
+  // Storage.begin() (SD.begin -> SPI.begin ohne Pins) zuerst, wuerde die
+  // NRF24-Pinwahl ignoriert und der Chip antwortet nicht. SD und NRF24 teilen
+  // den Bus und trennen sich ueber eigene CS-Pins (PIN_SD_CS / PIN_NRF_CSN).
+  SPI.begin(PIN_NRF_SCK, PIN_NRF_MISO, PIN_NRF_MOSI, PIN_NRF_CSN);
 
   // Zentraler Speicher-Dienst: waehlt SD (falls Karte) sonst RAM.
   // Muss VOR den Modulen laufen, damit sie direkt speichern koennen.
