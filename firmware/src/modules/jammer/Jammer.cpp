@@ -16,11 +16,12 @@ void JammerModule::begin() {
   _running = false;
   _channel = 45;
 
-  pinMode(PIN_NRF_CE, OUTPUT);
-  pinMode(PIN_NRF_CSN, OUTPUT);
-  pinMode(PIN_NRF_SCK, OUTPUT);
-  pinMode(PIN_NRF_MISO, INPUT);
-  pinMode(PIN_NRF_MOSI, OUTPUT);
+  // WICHTIG: KEIN pinMode() auf SCK/MISO/MOSI! Diese Pins gehoeren dem SPI-
+  // Treiber - SPI.begin() (main.cpp) hat sie an die SPI-Hardware geroutet. Ein
+  // pinMode() hier wuerde sie in der arduino-esp32-GPIO-Matrix wieder von der
+  // SPI-Peripherie LOESEN -> NRF24 bekaeme keinen Takt/Daten und antwortet
+  // nicht ("Keine SPI-Antwort"). CE/CSN setzt der RF24-Treiber in begin()
+  // selbst. Nur die SD wird abgewaehlt, solange der NRF24 den Bus nutzt.
   pinMode(PIN_SD_CS, OUTPUT);
   digitalWrite(PIN_SD_CS, HIGH);
 
