@@ -103,6 +103,16 @@ void DisplayModule::update() {
     return;
   }
 
+  if (_screen == S_LADEN) {
+    if (millis() - _lastFrame < kFrameMs) return;
+    _lastFrame = millis();
+    drawLoad();
+    if (_hasPendingAction && millis() - _loadStart >= 1200) {
+      dispatchPendingAction();
+    }
+    return;
+  }
+
   if (millis() - _lastFrame < kFrameMs) return;
   _lastFrame = millis();
 
@@ -112,9 +122,6 @@ void DisplayModule::update() {
       break;
     case S_SPRINGEN:
       drawJump();
-      break;
-    case S_LADEN:
-      drawLoad();
       break;
     case S_INFO:
       drawInfo();
@@ -126,6 +133,8 @@ void DisplayModule::update() {
 
 void DisplayModule::handleInput(InputEvent event) {
   if (!_ok || event == InputEvent::None) return;
+
+  if (_screen == S_LADEN) return;
 
   if (isMenuScreen(_screen)) {
     const int index = menuIndex(_screen);
@@ -306,24 +315,19 @@ void DisplayModule::drawOrca(float tailX, float tailY, float heading, int side,
 }
 
 bool DisplayModule::isMenuScreen(Screen screen) const {
-  return screen == S_MENU || screen == S_NFC_MENU ||
-         screen == S_NFC_WRITE_MENU || screen == S_IR_MENU ||
-         screen == S_IR_SEND_MENU || screen == S_JAMMER_MENU ||
-         screen == S_MODE_MENU || screen == S_INFO_MENU ||
-         screen == S_ORCA_MENU;
+  return screen == S_MENU || screen == S_NFC_MENU || screen == S_IR_MENU ||
+         screen == S_JAMMER_MENU ||
+         screen == S_MODE_MENU || screen == S_INFO_MENU;
 }
 
 int DisplayModule::menuIndex(Screen screen) const {
   switch (screen) {
     case S_MENU: return 0;
     case S_NFC_MENU: return 1;
-    case S_NFC_WRITE_MENU: return 2;
-    case S_IR_MENU: return 3;
-    case S_IR_SEND_MENU: return 4;
-    case S_JAMMER_MENU: return 5;
-    case S_MODE_MENU: return 6;
-    case S_INFO_MENU: return 7;
-    case S_ORCA_MENU: return 8;
+    case S_IR_MENU: return 2;
+    case S_JAMMER_MENU: return 3;
+    case S_MODE_MENU: return 4;
+    case S_INFO_MENU: return 5;
     default: return -1;
   }
 }
@@ -335,12 +339,7 @@ DisplayModule::Screen DisplayModule::parentMenu(Screen screen) const {
     case S_JAMMER_MENU:
     case S_MODE_MENU:
     case S_INFO_MENU:
-    case S_ORCA_MENU:
       return S_MENU;
-    case S_NFC_WRITE_MENU:
-      return S_NFC_MENU;
-    case S_IR_SEND_MENU:
-      return S_IR_MENU;
     default:
       return S_MENU;
   }
@@ -354,36 +353,18 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
       {"2,4 GHz", S_JAMMER_MENU},
       {"Modus", S_MODE_MENU},
       {"Info", S_INFO_MENU},
-      {"Orca", S_ORCA_MENU},
   };
   static const MenuEntry nfcMenu[] = {
       {"Lesen", S_NFC_MENU, "nfc", "read"},
-      {"Schreiben", S_NFC_WRITE_MENU},
-      {"Klonen", S_NFC_MENU, "nfc", "clone"},
       {"Zurueck", S_MENU},
-  };
-  static const MenuEntry nfcWriteMenu[] = {
-      {"Schreiben Slot 1", S_NFC_WRITE_MENU, "nfc", "write", 1},
-      {"Schreiben Slot 2", S_NFC_WRITE_MENU, "nfc", "write", 2},
-      {"Schreiben Slot 3", S_NFC_WRITE_MENU, "nfc", "write", 3},
-      {"Zurueck", S_NFC_MENU},
   };
   static const MenuEntry irMenu[] = {
       {"Aufnehmen", S_IR_MENU, "ir", "record"},
-      {"Senden", S_IR_SEND_MENU},
-      {"Ausschalten", S_IR_MENU, "ir", "shutoff"},
       {"Stop", S_IR_MENU, "ir", "stop"},
       {"Zurueck", S_MENU},
   };
-  static const MenuEntry irSendMenu[] = {
-      {"Senden Slot 1", S_IR_SEND_MENU, "ir", "send", 1},
-      {"Senden Slot 2", S_IR_SEND_MENU, "ir", "send", 2},
-      {"Senden Slot 3", S_IR_SEND_MENU, "ir", "send", 3},
-      {"Zurueck", S_IR_MENU},
-  };
   static const MenuEntry jammerMenu[] = {
-      {"Start", S_JAMMER_MENU, "jammer", "start"},
-      {"Stop", S_JAMMER_MENU, "jammer", "stop"},
+      {"Modul nicht verfuegbar", S_PLATZHALTER},
       {"Zurueck", S_MENU},
   };
   static const MenuEntry modeMenu[] = {
@@ -396,14 +377,6 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
       {"Verbundene Geraete", S_INFO_DEVICES},
       {"Zurueck", S_MENU},
   };
-  static const MenuEntry orcaMenu[] = {
-      {"Schwimmen", S_SCHWIMMEN},
-      {"Springen", S_SPRINGEN},
-      {"Laden", S_LADEN},
-      {"Info", S_INFO},
-      {"Zurueck", S_MENU},
-  };
-
   switch (screen) {
     case S_MENU:
       count = sizeof(mainMenu) / sizeof(mainMenu[0]);
@@ -411,15 +384,9 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
     case S_NFC_MENU:
       count = sizeof(nfcMenu) / sizeof(nfcMenu[0]);
       return nfcMenu;
-    case S_NFC_WRITE_MENU:
-      count = sizeof(nfcWriteMenu) / sizeof(nfcWriteMenu[0]);
-      return nfcWriteMenu;
     case S_IR_MENU:
       count = sizeof(irMenu) / sizeof(irMenu[0]);
       return irMenu;
-    case S_IR_SEND_MENU:
-      count = sizeof(irSendMenu) / sizeof(irSendMenu[0]);
-      return irSendMenu;
     case S_JAMMER_MENU:
       count = sizeof(jammerMenu) / sizeof(jammerMenu[0]);
       return jammerMenu;
@@ -429,9 +396,6 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
     case S_INFO_MENU:
       count = sizeof(infoMenu) / sizeof(infoMenu[0]);
       return infoMenu;
-    case S_ORCA_MENU:
-      count = sizeof(orcaMenu) / sizeof(orcaMenu[0]);
-      return orcaMenu;
     default:
       count = 0;
       return nullptr;
@@ -447,24 +411,51 @@ void DisplayModule::activateMenuEntry(const MenuEntry& entry) {
     return;
   }
 
+  _returnTo = _screen;
+  _pendingAction = entry;
+  _hasPendingAction = true;
+  startScreen(S_LADEN);
+}
+
+void DisplayModule::dispatchPendingAction() {
+  const MenuEntry entry = _pendingAction;
+  _hasPendingAction = false;
+
   bool accepted = false;
+  String errorMessage;
   if (_router != nullptr) {
     JsonDocument params;
     JsonObject arguments = params.to<JsonObject>();
     if (entry.slot > 0) arguments["slot"] = entry.slot;
     if (entry.value != nullptr) arguments["mode"] = entry.value;
-    accepted = _router->dispatch(entry.module, entry.action, arguments);
+    accepted = _router->dispatch(entry.module, entry.action, arguments,
+                                 &errorMessage);
   } else {
     Serial.println("[display] Befehl kann nicht weitergeleitet werden: Router fehlt.");
+    errorMessage = "Befehlsrouter nicht bereit";
   }
 
-  _returnTo = _screen;
-  _message = accepted ? "Aktion ausgefuehrt" : "Aktion abgelehnt";
+  if (accepted && entry.module != nullptr && entry.action != nullptr) {
+    if (strcmp(entry.module, "nfc") == 0 &&
+        strcmp(entry.action, "read") == 0) {
+      _message = "NFC-Suche gestartet";
+    } else if (strcmp(entry.module, "ir") == 0 &&
+               strcmp(entry.action, "record") == 0) {
+      _message = "IR-Aufnahme gestartet; Sensor nicht pruefbar";
+    } else if (strcmp(entry.module, "ir") == 0 &&
+               strcmp(entry.action, "stop") == 0) {
+      _message = "IR gestoppt";
+    } else {
+      _message = "Aktion ausgefuehrt";
+    }
+  } else {
+    _message = errorMessage.length() > 0 ? errorMessage : "Aktion abgelehnt";
+  }
   if (!accepted) {
     Serial.printf("[display] %s.%s wurde abgelehnt.\n", entry.module,
                   entry.action);
   }
-  _messageUntil = millis() + 1800;
+  _messageUntil = millis() + (accepted ? 1800 : 3000);
   startScreen(S_MESSAGE);
 }
 
@@ -496,8 +487,9 @@ void DisplayModule::drawMenu() {
 void DisplayModule::drawPlatzhalter() {
   u8g2_ClearBuffer(&_display);
   u8g2_SetFont(&_display, u8g2_font_6x10_tr);
-  u8g2_DrawStr(&_display, 2, 20, "Folgt");
-  u8g2_DrawStr(&_display, 2, 42, "Taste = zurueck");
+  u8g2_DrawStr(&_display, 2, 18, "2,4-GHz-Modul");
+  u8g2_DrawStr(&_display, 2, 34, "nicht eingebunden");
+  u8g2_DrawStr(&_display, 2, 54, "Taste = zurueck");
   u8g2_SendBuffer(&_display);
 }
 
@@ -518,8 +510,16 @@ void DisplayModule::drawInfoPage() {
 void DisplayModule::drawMessage() {
   u8g2_ClearBuffer(&_display);
   u8g2_SetFont(&_display, u8g2_font_6x10_tr);
-  u8g2_DrawStr(&_display, 2, 24, _message.c_str());
-  u8g2_DrawStr(&_display, 2, 48, "Taste = zurueck");
+  String remaining = _message;
+  for (int line = 0; line < 3 && remaining.length() > 0; ++line) {
+    int splitAt = remaining.length() > 20 ? remaining.lastIndexOf(' ', 20) : -1;
+    if (splitAt <= 0) splitAt = min(static_cast<int>(remaining.length()), 20);
+    const String text = remaining.substring(0, splitAt);
+    u8g2_DrawStr(&_display, 2, 14 + line * 14, text.c_str());
+    remaining.remove(0, splitAt);
+    while (remaining.startsWith(" ")) remaining.remove(0, 1);
+  }
+  u8g2_DrawStr(&_display, 2, 61, "Taste = zurueck");
   u8g2_SendBuffer(&_display);
 }
 
@@ -654,11 +654,8 @@ void DisplayModule::startScreen(Screen screen) {
 const char* DisplayModule::screenName() const {
   switch (_screen) {
     case S_MENU: return "menu";
-    case S_ORCA_MENU: return "orca-menu";
     case S_NFC_MENU: return "nfc-menu";
-    case S_NFC_WRITE_MENU: return "nfc-write-menu";
     case S_IR_MENU: return "ir-menu";
-    case S_IR_SEND_MENU: return "ir-send-menu";
     case S_JAMMER_MENU: return "jammer-menu";
     case S_MODE_MENU: return "mode-menu";
     case S_INFO_MENU: return "info-menu";

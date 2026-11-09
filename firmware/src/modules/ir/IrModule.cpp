@@ -91,6 +91,7 @@ void IrModule::update() {
 // ---------------------------------------------------------------------------
 void IrModule::statusJson(JsonObject obj) {
   obj["ok"] = true;  // IR-Bauteile sind nicht erkennbar -> immer true
+  obj["hardwareDetectable"] = false;
   const char* st = "idle";
   switch (_state) {
     case State::Recording: st = "recording"; break;

@@ -44,7 +44,7 @@ bis `IR_MAX_SIGNALS_PER_SLOT` Signale.
 ## Status (`statusJson`)
 
 ```json
-{ "ok": true, "state": "idle", "slots": 0, "newest": 0, "hasShutoff": false }
+{ "ok": true, "hardwareDetectable": false, "state": "idle", "slots": 0, "newest": 0, "hasShutoff": false }
 ```
 
 `state` = `idle` | `recording` | `sending` | `shutoff`; `slots` = Anzahl belegter
@@ -53,8 +53,11 @@ liste auf SD vorhanden.
 
 ## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
 
-- Empfänger und Sender lassen sich nicht erkennen. `ok` ist deshalb immer `true`.
-  Ohne Sender wird eben „ins Leere“ gesendet, das ist harmlos.
+- Empfänger und Sender lassen sich nicht erkennen. `ok` ist deshalb immer `true`
+  und `hardwareDetectable` ist `false`. Die Display-Meldung weist darauf hin,
+  dass der Sensor nicht geprüft werden kann; eine fehlende IR-Hardware kann nicht
+  als Fehler diagnostiziert werden. Ohne Sender wird eben „ins Leere“ gesendet,
+  das ist harmlos.
 - ⚠️ **Rauschen ohne Empfänger:** GPIO34 hat keinen internen Pull-up. Ist kein
   KY-022 angeschlossen, hängt der Pin in der Luft und kann Zufallssignale liefern,
   die als „unbekanntes IR-Signal“ erkannt werden. Deshalb:

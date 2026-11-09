@@ -12,7 +12,8 @@ void NfcModule::begin() {
   _reader.begin();
 
   if (!_transport.isReady()) {
-    Serial.println("[nfc] I2C-Bus konnte nicht initialisiert werden - Modul inaktiv");
+    _error = "I2C-Bus nicht bereit";
+    Serial.printf("[nfc] %s - Modul inaktiv\n", _error);
     return;
   }
 
@@ -22,20 +23,24 @@ void NfcModule::begin() {
     version = _reader.getFirmwareVersion();
   }
   if (version == 0) {
-    Serial.println("[nfc] PN532 nicht gefunden - Modul inaktiv");
+    _error = "NFC-Sensor fehlt: PN532";
+    Serial.printf("[nfc] %s - Modul inaktiv\n", _error);
     return;
   }
 
   if (!_reader.SAMConfig()) {
-    Serial.println("[nfc] SAMConfig fehlgeschlagen - Modul inaktiv");
+    _error = "PN532-Initialisierung fehlgeschlagen";
+    Serial.printf("[nfc] %s - Modul inaktiv\n", _error);
     return;
   }
 
   if (!_reader.setPassiveActivationRetries(NFC_PASSIVE_RETRIES)) {
-    Serial.println("[nfc] Passive Retry-Konfiguration fehlgeschlagen - Modul inaktiv");
+    _error = "NFC-Konfiguration fehlgeschlagen";
+    Serial.printf("[nfc] %s - Modul inaktiv\n", _error);
     return;
   }
   _ok = true;
+  _error = nullptr;
   _readPending = true;
   Serial.print("[nfc] PN532 Firmware-Version: ");
   Serial.println((version >> 16) & 0xFF, DEC);
@@ -129,6 +134,7 @@ String NfcModule::cardToJson() const {
 void NfcModule::statusJson(JsonObject obj) {
   obj["ok"] = _ok;
   obj["ready"] = _ok;
+  if (_error != nullptr) obj["error"] = _error;
   obj["readPending"] = _readPending;
   obj["lastUid"] = _card.uid;
   obj["lastAid"] = _card.aid;

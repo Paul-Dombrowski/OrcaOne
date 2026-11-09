@@ -21,7 +21,8 @@ public:
 
   // Befehl ausfuehren. Rueckgabe: false bei unbekanntem/inaktivem Modul oder
   // unbekanntem Befehl (das Modul entscheidet ueber seinen eigenen Befehl).
-  bool dispatch(const String& module, const String& action, JsonObjectConst params);
+  bool dispatch(const String& module, const String& action,
+                JsonObjectConst params, String* errorMessage = nullptr);
 
   // Gesamtstatus { "mode": "manual", "modules": { <name>: statusJson(), ... } }.
   // Dasselbe JSON fuer den Status-Push ans Handy und "status" in der Konsole.
