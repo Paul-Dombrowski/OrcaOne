@@ -64,6 +64,19 @@
 #define PIN_NRF_CE        17
 #define PIN_NRF_CSN        5
 
+// ---- Jammer (NRF24 Sweep-Task) ----
+#define JAM_CH_MIN            0   // unterste NRF-Kanalnummer im Sweep
+#define JAM_CH_MAX           80   // oberste NRF-Kanalnummer (80 = 2480 MHz, BLE-Adv 39)
+#define JAM_TASK_CORE         0   // eigener Core; loop()/Konsole laufen auf Core 1
+#define JAM_TASK_STACK     4096   // Bytes Stack fuer den Sweep-Task (ESP-IDF: Bytes)
+#define JAM_TASK_PRIORITY     1   // moderat: System-Tasks duerfen vordraengen
+#define JAM_WDT_YIELD_MS     50   // nach so vielen ms kurz yielden (Idle/Watchdog)
+// Sendepegel des Dauertraegers. RF24_PA_MAX = maximale Leistung, ABER hoechster
+// Stromhunger: bricht die 3,3-V-Versorgung ein (v.a. PA+LNA-Modul!), sendet MAX
+// dann instabil/schwaecher. In dem Fall RF24_PA_HIGH oder _LOW testen - oft real
+// besser. Werte: RF24_PA_MIN / RF24_PA_LOW / RF24_PA_HIGH / RF24_PA_MAX.
+#define JAM_PA_LEVEL   RF24_PA_MAX
+
 // ---- Micro-SD (Add-on, SPI, teilt Bus mit NRF24; eigener CS-Pin) ----
 // Vom Speicher-Dienst (storage/) genutzt. Muss ein ANDERER Pin sein als
 // PIN_NRF_CSN (5). Am D1 R32 vor dem Hardware-Aufbau verifizieren.
