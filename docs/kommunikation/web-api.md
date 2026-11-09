@@ -19,21 +19,23 @@ Weboberfläche aktualisiert damit ihre Anzeige.
 ```json
 {
   "type": "status",
-  "mode": "manual",
+  "mode": "no-mercy",
   "modules": {
-    "nfc":    { "ok": true, "ready": true, "lastUid": "04A1B2C3", "tagPresent": false, "stored": 1 },
-    "ir":     { "ok": true, "state": "idle", "slots": 0, "newest": 0, "hasShutoff": false },
-    "jammer": { "ok": false, "active": false },
+    "nfc":    { "ok": true, "ready": true, "readPending": false, "lastUid": "04A1B2C3", "lastCardType": "ISO14443A", "emulating": false, "emuReady": true },
+    "ir":     { "ok": true, "hardwareDetectable": false, "state": "idle", "slots": 1, "newest": 1, "hasShutoff": true },
+    "jammer": { "ok": true, "active": true, "channel": 45, "mode": "jamming" },
     "display":{ "ok": true },
     "input":  { "ok": true }
   }
 }
 ```
 
-- `mode`: `"auto"` oder `"manual"`.
+- `mode`: `"no-mercy"` oder `"manual"`. `"no-mercy"` schaltet Jammer und
+  IR-Ausschalt-Sequenz; es ist keine Sensor-Automatik.
 - `modules`: ein Eintrag pro Modul, Schlüssel = `name()` des Moduls. Der Inhalt
   ist genau das, was das jeweilige Modul in `statusJson()` schreibt (siehe die
-  README im Modul-Ordner).
+  README im Modul-Ordner). NFC- und IR-Felder können je nach Modulzustand weitere
+  Statuswerte enthalten.
 - **`ok` ist Pflicht in jedem Modul:** `false` heißt, das Bauteil hat beim Start
   nicht geantwortet (z. B. nicht angeschlossen). Die Weboberfläche zeigt das Modul
   dann ausgegraut an, statt Befehle zu senden. Alle anderen Module laufen normal
@@ -57,10 +59,11 @@ Die Weboberfläche sendet bei Nutzeraktionen ein Befehls-JSON:
 
 | module | action | params | Wirkung |
 |---|---|---|---|
-| `system` | `setMode` | `{ "mode": "nomercy"\|"off" }` | No-Mercy ein-/ausschalten (schaltet `jammer.start`+`ir.shutoff` bzw. `jammer.stop`+`ir.stop`) |
-| `nfc` | `read` | – | Tag einlesen |
-| `nfc` | `write` | `{ "slot": n }` | Daten auf Tag schreiben |
-| `nfc` | `clone` | – | lesen + zum Schreiben vormerken |
+| `system` | `setMode` | `{ "mode": "nomercy"\|"no-mercy"\|"auto"\|"off"\|"manual" }` | No-Mercy ein-/ausschalten; `"auto"` ist ein Alias für No-Mercy |
+| `nfc` | `read` | – | Scan-Zyklus anstoßen |
+| `nfc` | `emulate` | – | zuletzt erfolgreich erfasste Kartendaten emulieren |
+| `nfc` | `stop` | – | Emulation beenden |
+| `nfc` | `clear` | – | zuletzt erfasste Kartendaten verwerfen |
 | `ir` | `record` | – | Aufnahme starten: alle Signale bis `stop` in einen neuen Ringpuffer-Slot |
 | `ir` | `send` | `{ "slot": n }` *(optional)* | Slot zufällig in Dauerschleife senden; ohne `slot` den neuesten |
 | `ir` | `shutoff` | – | [E] Ausschalt-Codeliste (SD) in Dauerschleife senden, bis `stop` |
@@ -70,6 +73,11 @@ Die Weboberfläche sendet bei Nutzeraktionen ein Befehls-JSON:
 > Diese Tabelle wächst mit den Modulen. Neue Befehle hier eintragen **und** im
 > jeweiligen Modul in `handleCommand()` umsetzen — sonst kennen sich beide Seiten
 > nicht.
+
+Die aktuelle Weboberfläche sendet nur `nfc/read`, `ir/record` und `ir/stop`.
+Sie bietet weder NFC-Emulation noch IR-Senden, Jammer-Steuerung oder
+Modusumschaltung an. Der Firmware-Access-Point startet bereits; HTTP-Auslieferung
+der Webdateien und WebSocket-Server sind noch nicht integriert.
 
 ---
 

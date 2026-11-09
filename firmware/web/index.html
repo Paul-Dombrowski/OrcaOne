@@ -42,6 +42,8 @@
         <span aria-hidden="true">/</span>
         <a href="#infrared">Infrarot</a>
         <span aria-hidden="true">/</span>
+        <a href="#jammer">NRF24</a>
+        <span aria-hidden="true">/</span>
         <a href="#system">System</a>
       </nav>
 
@@ -66,6 +68,7 @@
             <span class="micro-label">LETZTE UID</span>
             <strong id="nfc-uid" class="mono">—</strong>
           </div>
+          <div class="ir-detail">Kartentyp: <span id="nfc-card-type">—</span></div>
           <p class="module-note" id="nfc-note">Warte auf Gerätestatus.</p>
           <button class="action-button" id="btn-nfc-read" type="button" disabled>
             <span>Tag lesen</span><span class="button-arrow" aria-hidden="true">↗</span>
@@ -77,47 +80,51 @@
             <span class="module-icon ir-icon" aria-hidden="true">IR</span>
             <span class="module-ready" id="ir-ready"><span class="ready-dot"></span><span>Warte auf Status</span></span>
           </div>
-          <p class="eyebrow">SENSOR · INFRAROT</p>
-          <h3 id="ir-title">Signal aufnehmen</h3>
-          <p class="card-description">Nimm das nächste Signal einer Fernbedienung auf. Der Speicherplatz wird automatisch gewählt.</p>
+          <p class="eyebrow">SENSOR &amp; AKTOR · INFRAROT</p>
+          <h3 id="ir-title">IR-Signale</h3>
+          <p class="card-description">Zeigt Aufnahme und Wiedergabestatus. Eine Aufnahme legt automatisch einen neuen Speicherplatz an.</p>
           <div class="data-field">
             <span class="micro-label">MODULSTATUS</span>
             <strong id="ir-state">Noch kein Status</strong>
           </div>
-          <div class="ir-detail" id="ir-detail">Protokoll: — <span id="ir-protocol">—</span></div>
+          <div class="ir-detail">Speicherplätze: <span id="ir-slots">—</span> · Neuester: <span id="ir-newest">—</span></div>
           <p class="module-note" id="ir-note">Warte auf Gerätestatus.</p>
           <div class="button-row">
             <button class="action-button" id="btn-ir-record" type="button" disabled>
               <span>Aufnahme starten</span><span class="button-arrow" aria-hidden="true">↗</span>
             </button>
-            <button class="stop-button" id="btn-ir-stop" type="button" disabled>Aufnahme stoppen</button>
+            <button class="stop-button" id="btn-ir-stop" type="button" disabled>IR-Vorgang stoppen</button>
           </div>
         </article>
 
-        <article class="module-card unavailable-card" aria-labelledby="radio-title">
+        <article class="module-card radio-card" id="jammer" aria-labelledby="radio-title">
           <div class="card-topline">
             <span class="module-icon radio-icon" aria-hidden="true">2.4</span>
-            <span class="unavailable-label">NICHT VERFÜGBAR</span>
+            <span class="module-ready" id="jammer-ready"><span class="ready-dot"></span><span>Warte auf Status</span></span>
           </div>
-          <p class="eyebrow">FUNKMODUL</p>
-          <h3 id="radio-title">2,4 GHz</h3>
-          <p class="card-description">Das NRF24-Modul und seine Firmware-Funktion sind noch nicht implementiert. In diesem Menü gibt es deshalb keine Funkaktion.</p>
-          <div class="unavailable-foot"><span aria-hidden="true">—</span> Keine Steuerung verfügbar</div>
+          <p class="eyebrow">FUNKMODUL · NRF24L01+</p>
+          <h3 id="radio-title">2,4-GHz-Modul</h3>
+          <div class="data-field">
+            <span class="micro-label">MODULSTATUS</span>
+            <strong id="jammer-state">Noch kein Status</strong>
+          </div>
+          <p class="module-note" id="jammer-note">Warte auf Gerätestatus.</p>
+          <div class="unavailable-foot"><span aria-hidden="true">i</span> Keine Web-Steuerung verfügbar</div>
         </article>
 
         <article class="module-card system-card" id="system" aria-labelledby="system-title">
           <div class="card-topline">
             <span class="module-icon system-icon" aria-hidden="true">◎</span>
-            <span class="unavailable-label">IN UMSETZUNG</span>
+            <span class="module-ready" id="system-ready"><span class="ready-dot"></span><span>Warte auf Status</span></span>
           </div>
-          <p class="eyebrow">BETRIEBSMODUS</p>
-          <h3 id="system-title">Automatik</h3>
+          <p class="eyebrow">SYSTEM · BETRIEBSMODUS</p>
+          <h3 id="system-title">No-Mercy-Modus</h3>
           <div class="data-field mode-field">
             <span class="micro-label">AKTUELLER MODUS</span>
             <strong id="mode">Noch kein Status</strong>
           </div>
-          <p class="card-description">ModeManager, Menü und Befehlsverteiler sind in der Firmware noch TODO. Der Modus wird hier angezeigt, aber nicht umgeschaltet.</p>
-          <div class="unavailable-foot"><span aria-hidden="true">—</span> Umschalten nicht verfügbar</div>
+          <p class="card-description" id="system-note">Warte auf Gerätestatus.</p>
+          <div class="unavailable-foot"><span aria-hidden="true">i</span> Anzeige ohne Web-Umschaltung</div>
         </article>
       </div>
 

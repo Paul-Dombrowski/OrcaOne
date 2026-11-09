@@ -17,9 +17,10 @@ Die Weboberfläche verarbeitet den Vertrag in
 - Verbindet sich bei Auslieferung per HTTP(S) mit `ws(s)://<host>/ws` und
   verarbeitet JSON-Statusmeldungen sowie optionale Ereignisse.
 - Zeigt Verbindungszustand, letzten Statuszeitpunkt, Betriebsmodus,
-  NFC-UID/Modulbereitschaft und IR-Aufnahmezustand/Protokoll an.
+  NFC-UID/Kartentyp, IR-Betriebszustand und Speicherplätze sowie den
+  NRF24- und Systemstatus an.
 - Sendet ausschließlich `nfc/read`, `ir/record` und `ir/stop`.
-  Die IR-Stopp-Schaltfläche ist nur während einer gemeldeten Aufnahme aktiv.
+  Die IR-Stopp-Schaltfläche ist bei gemeldeter Aufnahme oder Wiedergabe aktiv.
 - Aktionen bleiben deaktiviert, solange keine Verbindung, keine Statusmeldung
   oder kein Modul mit `ok: true` vorliegt. Für NFC wird zusätzlich ein
   ausdrücklich gemeldetes `ready: false` berücksichtigt. Fehlende Modulstatus
@@ -27,38 +28,39 @@ Die Weboberfläche verarbeitet den Vertrag in
 - Die Oberfläche behauptet keine Befehlsquittung: Nach dem Senden wird auf
   Statusupdates gewartet. Der Vertrag definiert Status-Pushes und optionale
   Ereignisse, aber keine verlässliche Quittung für jeden Befehl.
-- 2,4 GHz und Automatik/Moduswechsel sind als nicht verfügbar gekennzeichnet.
-  Es gibt dafür keine Aktionsschaltflächen.
+- Der NRF24-Status sowie `manual`/`no-mercy` werden angezeigt. Es gibt keine
+  Web-Steuerung für NRF24 oder den No-Mercy-Modus.
+- NFC-Emulation und IR-Senden/Ausschalt-Sequenz werden nicht über die
+  Weboberfläche ausgelöst. Die NFC-Emulation ist mit der aktuellen I2C-Anbindung
+  laut Modul-Dokumentation nicht funktionsfähig.
 
-### Firmwaregrenzen — keine Live-Integration vorhanden
+### Firmwaregrenzen — Webserver noch nicht integriert
 
-`firmware/src/main.cpp` bindet derzeit nur das NFC-Modul direkt für den
-vorläufigen Grundtest ein. IR, Display, Eingabe, `ModeManager`,
-`CommandRouter` und `NetworkManager` sind auskommentiert; die Initialisierung
-und Bedienung über WLAN/WebSocket stehen dort in TODO-Kommentaren. Der
-Firmware-Netzwerkserver wird deshalb aktuell nicht gestartet und liefert auch
-keine Live-Statusmeldungen an diese Seite. Die WebSocket-Implementierung ist
-der Client für die dokumentierte künftige Schnittstelle, kein Nachweis einer
-bereits funktionierenden Geräteverbindung.
+`firmware/src/main.cpp` initialisiert inzwischen Display, Eingabe, NFC, IR,
+NRF24, `ModeManager`, `CommandRouter`, Serial-Konsole und den WLAN-Access-Point.
+Der Access-Point wird gestartet, der HTTP-Webserver und der WebSocket-Server
+(`/ws`) sind jedoch noch nicht implementiert. Die WebSocket-Implementierung
+dieser Seite ist daher der Client für die dokumentierte Schnittstelle; Live-
+Daten sind erst verfügbar, wenn die Firmware die Webdateien ausliefert und
+Statusmeldungen sowie Befehle über `/ws` verarbeitet.
 
-Auch wenn die API-Dokumentation weitere Befehle aufführt, blendet diese
-Oberfläche NFC-Schreib-/Klon-Aktionen, IR-Senden/Wiederholen und
-2,4-GHz-Steuerung aus. Die NRF24-Funktion ist laut Modul-README noch nicht
-implementiert. Der Betriebsmodus wird – falls künftig gemeldet – nur angezeigt;
-`setMode` ist nicht angebunden.
+Die Oberfläche bleibt absichtlich bei NFC-Lesen und IR-Aufnahme/Stopp. Andere
+in der Firmware vorhandene Aktionen wie NFC-Emulation sowie IR-Senden und
+Ausschalt-Sequenz werden nicht per Weboberfläche angeboten.
 
 ## Protokollkontrakt
 
 - Transport: WebSocket auf `/ws`, Textframes mit JSON.
 - ESP32 → Browser: `{ "type": "status", "mode": "manual", "modules": { ... } }`.
-  Statusmeldungen kommen laut Vertrag ungefähr alle 500 ms. `mode` ist
-  `auto` oder `manual`; Modulobjekte müssen ein boolesches `ok` enthalten.
-- Erwartete Modulfelder: NFC `ok`, `ready`, `lastUid`, optional `error`; IR `ok`
-  und entweder `recording` oder `state` (`"recording"`/`"idle"`); optional
-  `hardwareDetectable` und `lastProtocol`. Ein nicht gemeldetes oder nicht
-  bereites Modul deaktiviert seine Aktionen. Wenn `hardwareDetectable: false`
-  gemeldet wird, erklärt die Anzeige, dass angeschlossene IR-Hardware nicht
-  überprüft werden kann.
+  Statusmeldungen kommen laut Vertrag ungefähr alle 500 ms. `mode` ist derzeit
+  `manual` oder `no-mercy`; Modulobjekte müssen ein boolesches `ok` enthalten.
+- Erwartete Modulfelder: NFC `ok`, `ready`, `lastUid`, `lastCardType`,
+  `readPending`, `emulating` und optional `error`; IR `ok`, `state` (`"idle"`,
+  `"recording"`, `"sending"` oder `"shutoff"`), `slots`, `newest`,
+  `hardwareDetectable`, `hasShutoff`; NRF24 `ok`, `active`, `channel`.
+  Ein nicht gemeldetes oder nicht bereites Modul deaktiviert seine Aktionen.
+  Wenn `hardwareDetectable: false` gemeldet wird, zeigt die Oberfläche an, dass
+  die IR-Hardware nicht geprüft werden kann.
 - Browser → ESP32: `{ "module": "...", "action": "...", "params": {} }`.
   Diese Oberfläche sendet nur:
 
@@ -86,8 +88,8 @@ Referenz: [`../../docs/kommunikation/web-api.md`](../../docs/kommunikation/web-a
   und verbindet sich bei Verbindungsabbruch erneut.
 - Der Upload der Dateien in LittleFS ist in der Firmware noch nicht eingerichtet;
   siehe [`../README.md`](../README.md). Livebetrieb ist daher erst möglich, wenn
-  sowohl die Webdateien bereitgestellt als auch `NetworkManager` in der Firmware
-  eingebunden ist.
+  sowohl die Webdateien bereitgestellt als auch HTTP- und WebSocket-Server in
+  der Firmware eingebunden sind.
 
 ## Dateien
 
