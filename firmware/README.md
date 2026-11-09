@@ -51,6 +51,12 @@ idf.py -p <PORT> monitor     # Serial Monitor; beenden mit Strg+]
 
 Kurzform für Flashen + Monitor: `idf.py -p <PORT> flash monitor`.
 
+Die Firmware nutzt eine 1,5-MiB-App-Partition (ohne OTA), da das Image die
+standardmäßige 1-MiB-Partition überschreitet. Bei einer bereits vorhandenen
+`sdkconfig` muss die Auswahl einmalig in `idf.py menuconfig` unter
+**Partition Table → Single factory app (large), no OTA** angepasst werden;
+danach neu bauen und flashen.
+
 ## Bibliotheken hinzufügen
 
 Registry-Bibliothek → Zeile in `main/idf_component.yml`. Arduino-Bibliothek ohne
