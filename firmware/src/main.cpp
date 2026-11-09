@@ -20,6 +20,7 @@
 #include "storage/StorageService.h"
 #include "core/CommandRouter.h"
 #include "console/SerialConsole.h"
+#include "network/NetworkService.h"
 #include "modules/nfc/NfcModule.h"
 #include "modules/ir/IrModule.h"
 
@@ -48,6 +49,10 @@ void setup() {
   router.begin(modules, MODULE_COUNT);
   Console.begin(&router);
 
+  // WLAN-Hotspot aufspannen (Stufe 1a: nur Verbinden moeglich, noch keine
+  // Weboberflaeche). Gibt die AP-IP im Serial-Monitor aus.
+  Net.begin();
+
   Serial.println("[OrcaOne] Bereit. 'help' fuer Befehle.");
 }
 
@@ -57,6 +62,9 @@ void loop() {
 
   // Eingaben aus dem Serial Monitor verarbeiten (nicht blockierend).
   Console.update();
+
+  // Netzwerk-Dienst (Stufe 1a: noch ohne Aufgabe, Platzhalter fuer Stufe 2).
+  Net.update();
 
   delay(1);  // Gibt dem Idle-Task Zeit und verhindert Watchdog-Ausloesungen.
 }
