@@ -16,12 +16,22 @@
 set(APP_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/../src")
 file(GLOB_RECURSE APP_SOURCES "${APP_SRC_DIR}/*.cpp")
 
+# Web-Oberflaeche (firmware/web/) wird ins Firmware-Image EINGEBETTET und vom
+# HTTP-Server in network/NetworkService.cpp ausgeliefert - KEIN LittleFS noetig.
+# Jede Datei erzeugt die Linker-Symbole _binary_<datei>_start/_end. Neue
+# Web-Dateien hier ergaenzen und in NetworkService.cpp als Route registrieren.
+set(APP_WEB_DIR "${CMAKE_CURRENT_LIST_DIR}/../web")
+
 # INCLUDE_DIRS macht z. B. #include "config.h" auffindbar.
 # "main" haengt automatisch von allen anderen Komponenten ab (u. a. arduino),
 # daher ist hier kein explizites REQUIRES noetig.
 idf_component_register(
   SRCS ${APP_SOURCES}
   INCLUDE_DIRS "${APP_SRC_DIR}"
+  EMBED_FILES
+    "${APP_WEB_DIR}/index.html"
+    "${APP_WEB_DIR}/css/style.css"
+    "${APP_WEB_DIR}/js/app.js"
 )
 
 if(CONFIG_U8G2_DISPLAY_DRIVER_SH1106 AND NOT CONFIG_U8G2_DISPLAY_DRIVER_ALL)

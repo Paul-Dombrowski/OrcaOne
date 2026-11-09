@@ -38,3 +38,8 @@ CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
 # alten CONFIG_FATFS_LFN_*-Zeilen ausfuehren.
 CONFIG_FATFS_LFN_HEAP=y
 CONFIG_FATFS_MAX_LFN=255
+
+# WebSocket-Support im HTTP-Server (esp_http_server) einschalten. Ohne diese
+# Zeile lehnt der Server /ws-Upgrade-Anfragen mit "400 Bad Request" ab (die
+# Weboberflaeche verbindet sich ueber ws://<host>/ws). Siehe network/.
+CONFIG_HTTPD_WS_SUPPORT=y
