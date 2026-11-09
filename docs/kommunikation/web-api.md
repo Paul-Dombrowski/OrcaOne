@@ -57,7 +57,7 @@ Die Weboberfläche sendet bei Nutzeraktionen ein Befehls-JSON:
 
 | module | action | params | Wirkung |
 |---|---|---|---|
-| `system` | `setMode` | `{ "mode": "auto"\|"manual" }` | Automatik ein-/ausschalten |
+| `system` | `setMode` | `{ "mode": "nomercy"\|"off" }` | No-Mercy ein-/ausschalten (schaltet `jammer.start`+`ir.shutoff` bzw. `jammer.stop`+`ir.stop`) |
 | `nfc` | `read` | – | Tag einlesen |
 | `nfc` | `write` | `{ "slot": n }` | Daten auf Tag schreiben |
 | `nfc` | `clone` | – | lesen + zum Schreiben vormerken |

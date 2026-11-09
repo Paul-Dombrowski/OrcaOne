@@ -18,6 +18,7 @@
 #include "config.h"
 #include "storage/StorageService.h"
 #include "core/CommandRouter.h"
+#include "core/ModeManager.h"
 #include "console/SerialConsole.h"
 #include "network/NetworkService.h"
 #include "modules/display/DisplayModule.h"
@@ -38,6 +39,7 @@ Module* modules[] = {&display, &input, &nfc, &ir, &jammer};
 static const size_t MODULE_COUNT = sizeof(modules) / sizeof(modules[0]);
 
 CommandRouter router;  // ein Weg fuer alle Befehle
+ModeManager  modeManager;  // Geraete-Modus "No-Mercy" (core/), schaltet Aktoren
 
 void setup() {
   Serial.begin(115200);
@@ -65,6 +67,12 @@ void setup() {
 
   // Befehls-Verteiler kennt alle Module; die Konsole nutzt ihn.
   router.begin(modules, MODULE_COUNT);
+
+  // Geraete-Modus (No-Mercy): nimmt "system"-Befehle an und schaltet darueber
+  // Jammer + IR. Muss NACH router.begin() und VOR den Befehlsquellen stehen.
+  modeManager.begin(&router);
+  router.setModeManager(&modeManager);
+
   display.setCommandRouter(&router);
   Console.begin(&router);
 

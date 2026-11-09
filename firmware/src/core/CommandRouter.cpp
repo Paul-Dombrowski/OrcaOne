@@ -1,5 +1,7 @@
 #include "CommandRouter.h"
 
+#include "ModeManager.h"
+
 void CommandRouter::begin(Module** modules, size_t count) {
   _modules = modules;
   _count = count;
@@ -7,8 +9,12 @@ void CommandRouter::begin(Module** modules, size_t count) {
 
 bool CommandRouter::dispatch(const String& module, const String& action,
                              JsonObjectConst params, String* errorMessage) {
-  // "system" (ModeManager) folgt spaeter - jetzt bewusst abgelehnt.
+  // "system" geht an den ModeManager (Geraete-Modus No-Mercy). Ist keiner
+  // gesetzt, wird abgelehnt - wie zuvor.
   if (module == "system") {
+    if (_modeManager != nullptr) {
+      return _modeManager->handleSystem(action, params, errorMessage);
+    }
     if (errorMessage != nullptr) *errorMessage = "System-Modul nicht eingebunden";
     return false;
   }
@@ -38,7 +44,7 @@ bool CommandRouter::dispatch(const String& module, const String& action,
 }
 
 void CommandRouter::buildStatus(JsonObject root) {
-  root["mode"] = "manual";  // ohne ModeManager vorerst fest
+  root["mode"] = _modeManager != nullptr ? _modeManager->modeName() : "manual";
   JsonObject mods = root["modules"].to<JsonObject>();
   for (size_t i = 0; i < _count; i++) {
     JsonObject m = mods[_modules[i]->name()].to<JsonObject>();

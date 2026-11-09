@@ -16,9 +16,9 @@ Hauptmenü
 │   └─ Stop                   → ir.stop
 ├─ 2,4 GHz
 │   └─ Hinweis: Modul nicht eingebunden
-├─ Modus
-│   ├─ Automatik AN          → system.setMode { auto }
-│   └─ Automatik AUS         → system.setMode { manual }
+├─ No-Mercy
+│   ├─ No-Mercy AN           → system.setMode { nomercy }  (Jammer + IR-Shutoff an)
+│   └─ No-Mercy AUS          → system.setMode { off }      (Jammer + IR stop)
 ├─ Info
 │   ├─ WLAN / IP-Adresse     (Anzeige)
 │   └─ Verbundene Geräte     (Anzeige)

@@ -11,13 +11,19 @@
 //  und spaeter von network/ und dem Menue. Darf NIE haengen, auch wenn ein
 //  Ziel-Modul inaktiv ist.
 //
-//  "system" ist fuer Geraete-Einstellungen (ModeManager) reserviert - der ist
-//  noch nicht gebaut, daher wird "system" vorerst abgelehnt.
+//  "system" ist fuer Geraete-Einstellungen reserviert und wird an den
+//  ModeManager (core/) weitergereicht. Ist keiner gesetzt, wird "system"
+//  abgelehnt.
 // ============================================================================
+class ModeManager;
+
 class CommandRouter {
 public:
   // Bekommt die Modul-Liste aus main.cpp (Lebensdauer: ganzes Programm).
   void begin(Module** modules, size_t count);
+
+  // Optional: den ModeManager anmelden, der "system"-Befehle behandelt.
+  void setModeManager(ModeManager* modeManager) { _modeManager = modeManager; }
 
   // Befehl ausfuehren. Rueckgabe: false bei unbekanntem/inaktivem Modul oder
   // unbekanntem Befehl (das Modul entscheidet ueber seinen eigenen Befehl).
@@ -35,4 +41,5 @@ public:
 private:
   Module** _modules = nullptr;
   size_t _count = 0;
+  ModeManager* _modeManager = nullptr;
 };

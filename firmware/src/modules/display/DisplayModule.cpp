@@ -364,7 +364,7 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
       {"NFC / RFID", S_NFC_MENU},
       {"Infrarot", S_IR_MENU},
       {"2,4 GHz", S_JAMMER_MENU},
-      {"Modus", S_MODE_MENU},
+      {"No-Mercy", S_MODE_MENU},
       {"Info", S_INFO_MENU},
   };
   static const MenuEntry nfcMenu[] = {
@@ -381,8 +381,8 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
       {"Zurueck", S_MENU},
   };
   static const MenuEntry modeMenu[] = {
-      {"Automatik AN", S_MODE_MENU, "system", "setMode", 0, "auto"},
-      {"Automatik AUS", S_MODE_MENU, "system", "setMode", 0, "manual"},
+      {"No-Mercy AN", S_MODE_MENU, "system", "setMode", 0, "nomercy"},
+      {"No-Mercy AUS", S_MODE_MENU, "system", "setMode", 0, "off"},
       {"Zurueck", S_MENU},
   };
   static const MenuEntry infoMenu[] = {

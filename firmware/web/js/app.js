@@ -35,7 +35,7 @@ function sendCommand(module, action, params = {}) {
 
 // Anzeige anhand des empfangenen Status aktualisieren (ESP32 -> Handy).
 function updateStatus(s) {
-  setText("mode", s.mode === "auto" ? "Automatik" : "Manuell");
+  setText("mode", s.mode === "no-mercy" ? "No-Mercy AKTIV" : "Aus");
 
   const m = s.modules || {};
   if (m.nfc) setText("nfc-uid", m.nfc.lastUid || "–");
@@ -44,9 +44,9 @@ function updateStatus(s) {
 
 // --- Bedienelemente verdrahten ---
 window.addEventListener("DOMContentLoaded", () => {
-  // Modus-Umschaltung (Pflicht: Automatik per Handy an/aus)
-  byId("btn-auto").onclick   = () => sendCommand("system", "setMode", { mode: "auto" });
-  byId("btn-manual").onclick = () => sendCommand("system", "setMode", { mode: "manual" });
+  // No-Mercy-Umschaltung (per Handy an/aus): schaltet Jammer + IR-Shutoff.
+  byId("btn-nomercy-on").onclick  = () => sendCommand("system", "setMode", { mode: "nomercy" });
+  byId("btn-nomercy-off").onclick = () => sendCommand("system", "setMode", { mode: "off" });
 
   // Alle Buttons mit data-module/data-action automatisch verdrahten.
   document.querySelectorAll("button[data-module]").forEach((btn) => {
