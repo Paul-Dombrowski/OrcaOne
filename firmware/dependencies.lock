@@ -448,7 +448,7 @@ dependencies:
       type: service
     version: 1.0.22~1
   espressif/mdns:
-    component_hash: ef0766474b37459f6ad22461e453a8713e780e831a7c993b16919d817988dff6
+    component_hash: ae75315ecdc03357e40b490cf5b3e8177f98c184236dd93a0e4c6647a18fed67
     dependencies:
     - name: idf
       require: private
@@ -456,7 +456,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
-    version: 1.14.1
+    version: 1.15.0
   espressif/network_provisioning:
     component_hash: ef2e10182fd1861e68b821491916327c25416ca7ae70e5a6e43313dbc71fe993
     dependencies:
@@ -485,7 +485,7 @@ dependencies:
       type: service
     version: 1.0.0
   espressif/rmaker_common:
-    component_hash: bfb0fc9a19686e4fc61da00e10d1db03fecb712d79d2a34c5fbb3fd41ef5f026
+    component_hash: cfbe92d0e739288354c91655e4fe7b9592bbfa410c01a2480428038acd149a7f
     dependencies:
     - name: espressif/mqtt
       registry_url: https://components.espressif.com
@@ -500,7 +500,7 @@ dependencies:
     - name: espressif/rmaker_common_events
       registry_url: https://components.espressif.com
       require: private
-      version: ^1.1.0
+      version: ^1.2.0
     - name: espressif/rmaker_console
       registry_url: https://components.espressif.com
       require: private
@@ -523,9 +523,9 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
-    version: 1.9.0
+    version: 1.10.1
   espressif/rmaker_common_events:
-    component_hash: 57df0770974627a57a2c4d459a4ec93d707d2b9c029966128ddf262fed982c5d
+    component_hash: 3cd947e1e97c3c391087f0f82167c830dd20dd852e36db3c918f9bbff484b2ff
     dependencies:
     - name: idf
       require: private
@@ -533,7 +533,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
-    version: 1.1.0
+    version: 1.2.0
   espressif/rmaker_console:
     component_hash: 22f38fe0ec9c84257427dad9a92e09ddbba48a6278eae42b0b167589f0e79f20
     dependencies:
@@ -604,10 +604,21 @@ dependencies:
       registry_url: https://components.espressif.com
       type: service
     version: 1.23.1
+  nixy4/u8g2:
+    component_hash: d23326bf33da6b0a41ef16caa527689d770bcb7c469d8d57ca18a42f4cfed81b
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.1.4
 direct_dependencies:
 - bblanchon/arduinojson
 - espressif/arduino-esp32
 - idf
-manifest_hash: b7fd38ad8adc869c87050503d99d130671208058523fc1cdcd606edbfcc5a416
+- nixy4/u8g2
+manifest_hash: c33d1f958253690f88eecc1522a2ac2b7ac2d2437df741f10614e5273bdc3342
 target: esp32
 version: 2.0.0

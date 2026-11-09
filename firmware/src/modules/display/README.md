@@ -15,50 +15,37 @@ Adresse 0x3C). **Bibliothek:** `U8g2`.
 **Rolle:** Aktor (Ausgabe). `name()` = `"display"`.
 
 > Hinweis: 1,3"-OLEDs nutzen meist den **SH1106**-Controller, 0,96"-OLEDs den
-> SSD1306. Bei verschobenem/abgeschnittenem Bild in U8g2 den passenden
-> Konstruktor wählen (`U8G2_SH1106_128X64_NONAME_F_HW_I2C`).
+> SSD1306. Dieses Projekt verwendet den SH1106-Setup-Aufruf der U8g2-C-API.
 
-## Was es können soll
+## Umsetzung
 
-- Das aktuelle **Menü** zeichnen (wird vom `MenuController` in `core/` gefüttert),
-  mit der aktuellen Auswahl **hervorgehoben**. Das OLED ist **einfarbig**, daher
-  ist „hervorgehoben" ein **invertierter Balken** (dunkle Schrift auf hellem Grund),
-  keine Farbe.
-- **Status-Screen:** Ist man in einem Modus, in dem es nichts auszuwählen gibt,
-  wird statt eines Menüs nur die Live-Statusinfo angezeigt (z. B. „Warte auf
-  Signal…", letzte NFC-UID, aktueller Modus).
-- Einfache Rückmeldungen („IR gespeichert", „Automatik AN").
+`DisplayModule` portiert das vorhandene Orca-Menü in die Projektstruktur. Es
+zeichnet das invertiert markierte Menü sowie die Schwimm-, Sprung-, Lade- und
+Info-Bildschirme. Eingabeereignisse erhält es vom `InputModule`.
 
-## Schnittstelle
-
-Das Display ist ein Dienst für die anderen Teile. Sinnvolle Zusatzmethoden
-(neben dem Modul-Vertrag), die `MenuController` nutzen kann:
-
-```cpp
-void showMenu(const char* title, const char* items[], int count, int selected);
-void showStatus(const char* title, const char* lines[], int count); // Status-Screen
-void showMessage(const char* text);                                  // kurze Rückmeldung
-```
-
-`showMenu` hebt die Zeile `selected` invertiert hervor; `showStatus` zeigt reine
-Infozeilen ohne Auswahl.
-
-- `update()` übernimmt das eigentliche Zeichnen (U8g2 arbeitet mit einem
-  Puffer: Inhalt setzen, dann einmal `display.sendBuffer()`), nicht-blockierend.
+- `begin()` initialisiert I²C und U8g2.
+- `update()` zeichnet Animationen höchstens alle 30 ms; es enthält kein
+  `delay()`.
+- `handleInput()` verarbeitet `InputEvent`s aus dem Input-Modul.
+- `handleCommand()` unterstützt `up`, `down`, `ok` und `back` für die
+  Serial-Konsole.
+- U8g2 verwendet einen Wire-Callback, damit OLED und PN532 denselben I²C-Bus
+  nutzen und kein zweiter I²C-Treiber installiert wird.
+- Nach der neuen Abhängigkeit und den `.cpp`-Dateien einmal `idf.py reconfigure`,
+  danach `idf.py build` ausführen.
+- Das Projekt verwendet SH1106 und die gemeinsamen Pins aus `config.h`; die
+  abweichenden Werte aus dem ursprünglichen Sketch werden nicht fest verdrahtet.
+- Der Drehgeber wird ausschließlich vom Modul in `../input/` ausgelesen.
 
 ## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
 
-- U8g2 merkt nicht, ob ein Display angeschlossen ist. Ohne Display laufen die
-  Zeichenbefehle einfach ins Leere, das ist harmlos und **soll so bleiben** (keine
-  Erkennung einbauen). `ok` ist deshalb immer `true`.
-- **Das Menü ist trotzdem bedienbar:** Der `MenuController` gibt jedes Menü
-  zusätzlich im Serial Monitor aus (`Console.printMenu`), siehe
-  [`../../console/README.md`](../../console/README.md). Das Display-Modul muss dafür
-  **nichts** tun und ruft die Konsole auch nicht selbst auf.
-- Status: `{ "ok": true }`.
+- U8g2 erkennt ein fehlendes Display nicht; die Zeichenbefehle laufen ins Leere.
+  `ok` bleibt deshalb `true`, solange der I²C-Bus initialisiert werden konnte.
+- Die Befehle `up`, `down`, `ok` und `back` können zusätzlich über den
+  vorläufigen Serial-Eingang in `main.cpp` gesendet werden.
+- Status enthält `ok`, `screen`, `selection` und `swimSpeed`.
 
 ## To-do
 
-- [ ] `DisplayModule.h` / `.cpp` anlegen, U8g2 initialisieren.
-- [ ] „Hallo OrcaOne" anzeigen → bestätigt, dass Display + Verkabelung laufen.
-- [ ] `showMenu` / `showMessage` umsetzen.
+- [x] `DisplayModule.h` / `.cpp` anlegen und U8g2 initialisieren.
+- [x] Menü, Animationen und Drehgeber-Steuerung aus dem Sketch portieren.

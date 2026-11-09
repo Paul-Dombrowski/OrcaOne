@@ -11,7 +11,8 @@ docs/ARBEITSWEISE.md · diese README · core/Module.h
 ---
 
 **Hardware:** Drehgeber KY-040 (CLK = GPIO25, DT = GPIO26, SW = GPIO27).
-**Bibliothek:** `ESP32Encoder`. **Rolle:** Sensor (Benutzereingabe).
+**Bibliothek:** keine (Quadraturauswertung im Modul). **Rolle:** Sensor
+(Benutzereingabe).
 `name()` = `"input"`.
 
 ## Was es können soll
@@ -19,12 +20,13 @@ docs/ARBEITSWEISE.md · diese README · core/Module.h
 - **Drehen** erkennen (eine Stufe nach rechts / links) → Auswahl hoch/runter.
 - **Kurzer Druck** (SW) → auswählen / in den Modus gehen.
 - **Langer Druck** (SW gehalten) → zurück (auch aus einem Status-Screen ins Menü).
-- Diese Ereignisse dem `MenuController` (in `core/`) bereitstellen.
+- Diese Ereignisse dem Menü bzw. der Anzeige bereitstellen.
 
 ## Schnittstelle
 
-`main.cpp` fragt das Input-Modul nach aufgetretenen Ereignissen und gibt sie an
-den `MenuController` (`menu.handleInput(e)`).
+`InputModule` erzeugt Ereignisse. `main.cpp` reicht sie an die
+`DisplayModule`-Ansicht weiter; wenn später der `MenuController` umgesetzt wird,
+kann er dieselbe Schnittstelle verwenden.
 
 ```cpp
 // Der Typ liegt in core/InputEvent.h (NICHT in diesem Modul), weil die
@@ -47,17 +49,12 @@ InputEvent poll();   // gibt das nächste Ereignis zurück (oder None)
 - ⚠️ **Pflicht: interne Pull-ups aktivieren.** Ohne angeschlossenen KY-040 hängen
   die Pins sonst in der Luft und liefern Zufallsereignisse, das Menü springt dann
   von selbst, während jemand z. B. am NFC arbeitet.
-  - Drehgeber: Pull-ups über `ESP32Encoder` einschalten
-    (`ESP32Encoder::useInternalWeakPullResistors`, genaue Schreibweise siehe
-    Beispiele der installierten Bibliotheksversion), **vor** dem Anlegen des Encoders.
-  - Taster: `pinMode(PIN_ENCODER_SW, INPUT_PULLUP)`. Gedrückt = `LOW`.
+  - Drehgeber und Taster: `pinMode(..., INPUT_PULLUP)`. Gedrückt = `LOW`.
 - **Ersatz ohne Drehgeber:** Im Serial Monitor `up`, `down`, `ok`, `back`
-  eingeben (siehe [`../../console/README.md`](../../console/README.md)).
+  eingeben; `main.cpp` reicht sie an die Anzeige weiter (siehe
+  [`../../console/README.md`](../../console/README.md)).
 
 ## To-do
 
-- [ ] `InputModule.h` / `.cpp` anlegen, `ESP32Encoder` auf CLK/DT einrichten
-      (mit internen Pull-ups, siehe oben).
-- [ ] Drehrichtung im Serial-Monitor ausgeben (Test).
-- [ ] Taster mit Entprellung ergänzen; kurzen vs. langen Druck unterscheiden,
-      `poll()` mit `Click`/`LongPress` umsetzen.
+- [x] `InputModule.h` / `.cpp` anlegen und Encoder/Taster nicht-blockierend lesen.
+- [x] Taster entprellen und kurze/lange Drücke als `Click`/`LongPress` ausgeben.

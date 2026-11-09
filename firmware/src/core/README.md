@@ -54,8 +54,9 @@ unterschiedlich), gibt es genau **eine** Stelle dafür:
 
 ```cpp
 // Befehl ausfuehren. "system" -> ModeManager, sonst Modul mit passendem name().
-// Rueckgabe: false bei unbekanntem Modul, inaktivem Modul oder unbekanntem Befehl.
-bool dispatch(const String& module, const String& action, JsonObjectConst params);
+// Optionaler Fehlertext fuer die Anzeige, wenn ein Befehl abgelehnt wird.
+bool dispatch(const String& module, const String& action, JsonObjectConst params,
+              String* errorMessage = nullptr);
 
 // Gesamtstatus { "mode": ..., "modules": { <name>: statusJson(), ... } } bauen.
 // Dasselbe JSON fuer Status-Push ans Handy und "status" in der Konsole.

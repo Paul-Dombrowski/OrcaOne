@@ -53,7 +53,9 @@ einen anderen Leser.
 ```
 
 `emuReady` = ein Mitschnitt zum Zurückspielen liegt vor; `emulating` = Emulation
-gerade aktiv.
+gerade aktiv. Bei einer fehlgeschlagenen Initialisierung enthält `error` den
+konkreten Grund (zum Beispiel `"NFC-Sensor fehlt: PN532"`); das Display zeigt
+diesen Text beim abgelehnten Menü-Befehl an.
 
 ## Karten-Emulation (Capture & Replay)
 
@@ -92,8 +94,9 @@ Karte.
 ## Ohne Hardware (Teil-Hardware, ARBEITSWEISE.md §6 Regel 5)
 
 - **PN532 fehlt:** `nfc.getFirmwareVersion()` liefert `0`. Dann einmal
-  `[nfc] PN532 nicht gefunden - Modul inaktiv` ausgeben, `ok = false`, `update()`
-  tut nichts, `handleCommand()` gibt `false` zurück.
+  `[nfc] NFC-Sensor fehlt: PN532 - Modul inaktiv` ausgeben, `ok = false`,
+  `update()` tut nichts, `handleCommand()` gibt `false` zurück und das Display
+  zeigt den Fehlergrund.
 - Kann `Wire.begin()` den Bus nicht starten, meldet das Modul den I²C-Fehler
   einmalig und bleibt inaktiv. Antwortet der PN532 nicht auf die I²C-Adresse,
   wird der fehlgeschlagene Schreibversuch beendet, ohne wiederholt ACK-Leseversuche

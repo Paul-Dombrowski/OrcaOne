@@ -98,9 +98,9 @@ Jede Ausgabe beginnt mit einem Präfix in eckigen Klammern:
 | `ok` | kurzer Druck (auswählen) |
 | `back` | langer Druck (zurück) |
 
-- Die Konsole erzeugt dabei **dieselben `InputEvent`s** wie das `input`-Modul und
-  gibt sie an den `MenuController` (`core/`). Der Menü-Code unterscheidet nicht,
-  woher ein Ereignis kommt.
+- Die Befehle `up`, `down`, `ok` und `back` werden als `InputEvent`s in die
+  Warteschlange des `input`-Moduls gelegt. `main.cpp` reicht sie an die Anzeige
+  weiter; das Display-Menü unterscheidet nicht, woher ein Ereignis kommt.
 - **Ausgabe:** Der `MenuController` gibt das Menü bei **jeder Änderung immer auch**
   im Monitor aus, egal ob ein Display angeschlossen ist (es gibt bewusst keine
   Hardware-Erkennung). Rückmeldungen wie „IR Slot 1 gespeichert“ ebenso.

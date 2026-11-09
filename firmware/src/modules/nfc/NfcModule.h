@@ -30,6 +30,7 @@ private:
   EmvEmulator _emulator{_reader};
 
   bool _ok = false;
+  const char* _error = nullptr;
   bool _readPending = true;
   bool _hasPolled = false;
   unsigned long _lastPollMs = 0;

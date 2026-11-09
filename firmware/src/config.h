@@ -60,7 +60,8 @@
 // ---- NRF24L01+ (2,4 GHz, SPI) ----
 #define PIN_NRF_SCK       18
 #define PIN_NRF_MISO      19
-#define PIN_NRF_MOSI      23
+#define PIN_NRF_MOSI      23 
+
 #define PIN_NRF_CE        17
 #define PIN_NRF_CSN        5
 

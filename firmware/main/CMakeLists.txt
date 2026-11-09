@@ -23,3 +23,11 @@ idf_component_register(
   SRCS ${APP_SOURCES}
   INCLUDE_DIRS "${APP_SRC_DIR}"
 )
+
+if(CONFIG_U8G2_DISPLAY_DRIVER_SH1106 AND NOT CONFIG_U8G2_DISPLAY_DRIVER_ALL)
+  idf_component_get_property(U8G2_COMPONENT_LIB nixy4__u8g2 COMPONENT_LIB)
+  idf_component_get_property(U8G2_COMPONENT_DIR nixy4__u8g2 COMPONENT_DIR)
+  target_sources(${U8G2_COMPONENT_LIB} PRIVATE
+    "${U8G2_COMPONENT_DIR}/src/driver/u8x8_d_ssd1306_128x64_noname.c"
+  )
+endif()

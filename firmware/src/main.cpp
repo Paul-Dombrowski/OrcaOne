@@ -5,34 +5,36 @@
 //  Hardware-Logik - die steckt in den Modulen (firmware/src/modules/).
 //
 //  Ablauf:
-//    setup()  -> Speicher starten, alle Module einmal initialisieren (begin()),
-//                Router + Serial-Konsole verdrahten.
-//    loop()   -> allen Modulen staendig update() geben + die Serial-Konsole
-//                bedienen (Bedienung ohne Display/Drehgeber/Handy).
-//
-//  Befehle (Serial Monitor, Handy, spaeter Menue) laufen alle ueber EINEN Weg:
-//    SerialConsole -> CommandRouter.dispatch() -> Module.handleCommand().
+//    setup()  -> NRF24/SPI + Speicher starten, alle Module initialisieren,
+//                Router + Serial-Konsole + Netzwerk verdrahten.
+//    loop()   -> allen Modulen update() geben, Serial-Konsole + Netzwerk
+//                bedienen und Eingaben (Drehgeber/Taste) an das Display geben.
 //
 //  Fehlt ein Bauteil, laeuft trotzdem alles andere weiter (ARBEITSWEISE.md §6).
 // ============================================================================
 #include <Arduino.h>
 #include <SPI.h>
+
 #include "config.h"
 #include "storage/StorageService.h"
 #include "core/CommandRouter.h"
 #include "console/SerialConsole.h"
 #include "network/NetworkService.h"
+#include "modules/display/DisplayModule.h"
+#include "modules/input/InputModule.h"
 #include "modules/nfc/NfcModule.h"
 #include "modules/ir/IrModule.h"
 #include "modules/jammer/Jammer.h"
 
 // --- Globale Objekte (ein Exemplar pro Modul) ---
-NfcModule nfc;
-IrModule  ir;
-JammerModule jammer;
+DisplayModule display;
+InputModule   input;
+NfcModule     nfc;
+IrModule      ir;
+JammerModule  jammer;
 
 // Alle Module in EINER Liste, damit setup()/loop() sie einheitlich durchlaufen.
-Module* modules[] = { &nfc, &ir, &jammer };
+Module* modules[] = {&display, &input, &nfc, &ir, &jammer};
 static const size_t MODULE_COUNT = sizeof(modules) / sizeof(modules[0]);
 
 CommandRouter router;  // ein Weg fuer alle Befehle
@@ -56,13 +58,14 @@ void setup() {
   Storage.begin();
 
   // Uebrige Module initialisieren (jammer ist oben bereits gestartet).
-  for (Module* m : modules) {
-    if (m == &jammer) continue;
-    m->begin();
+  for (Module* module : modules) {
+    if (module == &jammer) continue;
+    module->begin();
   }
 
   // Befehls-Verteiler kennt alle Module; die Konsole nutzt ihn.
   router.begin(modules, MODULE_COUNT);
+  display.setCommandRouter(&router);
   Console.begin(&router);
 
   // WLAN-Hotspot aufspannen (Stufe 1a: nur Verbinden moeglich, noch keine
@@ -74,13 +77,20 @@ void setup() {
 
 void loop() {
   // Allen Modulen Rechenzeit geben (nicht-blockierend, siehe core/README.md).
-  for (Module* m : modules) m->update();
+  for (Module* module : modules) module->update();
 
   // Eingaben aus dem Serial Monitor verarbeiten (nicht blockierend).
   Console.update();
 
   // Netzwerk-Dienst (Stufe 1a: noch ohne Aufgabe, Platzhalter fuer Stufe 2).
   Net.update();
+
+  // Drehgeber/Taste abfragen und an das Menue/Display weitergeben.
+  InputEvent event = input.poll();
+  while (event != InputEvent::None) {
+    display.handleInput(event);
+    event = input.poll();
+  }
 
   delay(1);  // Gibt dem Idle-Task Zeit und verhindert Watchdog-Ausloesungen.
 }
