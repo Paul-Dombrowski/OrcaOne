@@ -1,44 +1,137 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <!-- mobilfreundlich: Seite passt sich der Handy-Bildschirmbreite an -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OrcaOne</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071b20">
+  <meta name="description" content="OrcaOne Smartphone-Menü und Gerätestatus">
+  <title>OrcaOne · Gerätemenü</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header>
-    <h1>OrcaOne</h1>
-    <!-- zeigt an, ob die Verbindung zum ESP32 steht -->
-    <span id="conn" class="conn off">getrennt</span>
-  </header>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="OrcaOne Startseite">
+        <span class="brand-mark" aria-hidden="true">O</span>
+        <span class="brand-name">ORCA<span>ONE</span></span>
+      </a>
+      <div id="conn" class="connection connection-wait" role="status" aria-live="polite">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span id="conn-label">Verbinde …</span>
+      </div>
+    </header>
 
-  <main>
-    <!-- Geraete-Modus: No-Mercy an/aus (schaltet Jammer + IR-Shutoff) -->
-    <section class="card">
-      <h2>No-Mercy</h2>
-      <p>Aktuell: <strong id="mode">–</strong></p>
-      <button id="btn-nomercy-on">No-Mercy AN</button>
-      <button id="btn-nomercy-off">No-Mercy AUS</button>
-    </section>
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <p class="eyebrow"><span class="eyebrow-line"></span> GERÄTEMENÜ <span id="link-mode">LIVE-STATUS</span></p>
+        <h1 id="page-title">Alles im <span>Überblick.</span></h1>
+        <p class="hero-copy">Module und Status deines OrcaOne. Aktionen werden nur gesendet, wenn Gerät und Modul bereit sind.</p>
+        <div class="hero-status">
+          <span class="status-orbit" aria-hidden="true"><span></span></span>
+          <div>
+            <span class="micro-label">GERÄTESTATUS</span>
+            <strong id="device-summary">Warte auf Verbindung</strong>
+          </div>
+          <span class="status-time" id="status-time">—</span>
+        </div>
+      </section>
 
-    <!-- NFC-Status -->
-    <section class="card">
-      <h2>NFC / RFID</h2>
-      <p>Letzte UID: <strong id="nfc-uid">–</strong></p>
-      <button data-module="nfc" data-action="read">Tag lesen</button>
-    </section>
+      <nav class="menu-index" aria-label="Menübereiche">
+        <span class="menu-index-label">MENÜ</span>
+        <a href="#nfc">NFC</a>
+        <span aria-hidden="true">/</span>
+        <a href="#infrared">Infrarot</a>
+        <span aria-hidden="true">/</span>
+        <a href="#system">System</a>
+      </nav>
 
-    <!-- IR-Steuerung (Beispiel für einen vom Handy steuerbaren Aktor) -->
-    <section class="card">
-      <h2>Infrarot</h2>
-      <p>Status: <strong id="ir-state">–</strong></p>
-      <button data-module="ir" data-action="send" data-slot="1">Signal 1 senden</button>
-      <button data-module="ir" data-action="record" data-slot="1">Signal 1 aufnehmen</button>
-    </section>
-  </main>
+      <section class="section-heading" aria-labelledby="modules-title">
+        <div>
+          <p class="eyebrow">MODULE</p>
+          <h2 id="modules-title">Steuerung</h2>
+        </div>
+        <span class="section-note">STATUS &amp; AKTIONEN</span>
+      </section>
 
+      <div class="module-grid">
+        <article class="module-card nfc-card" id="nfc" aria-labelledby="nfc-title">
+          <div class="card-topline">
+            <span class="module-icon nfc-icon" aria-hidden="true">N</span>
+            <span class="module-ready" id="nfc-ready"><span class="ready-dot"></span><span>Warte auf Status</span></span>
+          </div>
+          <p class="eyebrow">SENSOR · 13.56 MHz</p>
+          <h3 id="nfc-title">NFC / RFID</h3>
+          <p class="card-description">Lies einen Tag mit dem PN532 aus und sieh die zuletzt erkannte UID.</p>
+          <div class="data-field">
+            <span class="micro-label">LETZTE UID</span>
+            <strong id="nfc-uid" class="mono">—</strong>
+          </div>
+          <p class="module-note" id="nfc-note">Warte auf Gerätestatus.</p>
+          <button class="action-button" id="btn-nfc-read" type="button" disabled>
+            <span>Tag lesen</span><span class="button-arrow" aria-hidden="true">↗</span>
+          </button>
+        </article>
+
+        <article class="module-card ir-card" id="infrared" aria-labelledby="ir-title">
+          <div class="card-topline">
+            <span class="module-icon ir-icon" aria-hidden="true">IR</span>
+            <span class="module-ready" id="ir-ready"><span class="ready-dot"></span><span>Warte auf Status</span></span>
+          </div>
+          <p class="eyebrow">SENSOR · INFRAROT</p>
+          <h3 id="ir-title">Signal aufnehmen</h3>
+          <p class="card-description">Nimm das nächste Signal einer Fernbedienung auf. Der Speicherplatz wird automatisch gewählt.</p>
+          <div class="data-field">
+            <span class="micro-label">MODULSTATUS</span>
+            <strong id="ir-state">Noch kein Status</strong>
+          </div>
+          <div class="ir-detail" id="ir-detail">Protokoll: — <span id="ir-protocol">—</span></div>
+          <p class="module-note" id="ir-note">Warte auf Gerätestatus.</p>
+          <div class="button-row">
+            <button class="action-button" id="btn-ir-record" type="button" disabled>
+              <span>Aufnahme starten</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="stop-button" id="btn-ir-stop" type="button" disabled>Aufnahme stoppen</button>
+          </div>
+        </article>
+
+        <article class="module-card unavailable-card" aria-labelledby="radio-title">
+          <div class="card-topline">
+            <span class="module-icon radio-icon" aria-hidden="true">2.4</span>
+            <span class="unavailable-label">NICHT VERFÜGBAR</span>
+          </div>
+          <p class="eyebrow">FUNKMODUL</p>
+          <h3 id="radio-title">2,4 GHz</h3>
+          <p class="card-description">Das NRF24-Modul und seine Firmware-Funktion sind noch nicht implementiert. In diesem Menü gibt es deshalb keine Funkaktion.</p>
+          <div class="unavailable-foot"><span aria-hidden="true">—</span> Keine Steuerung verfügbar</div>
+        </article>
+
+        <article class="module-card system-card" id="system" aria-labelledby="system-title">
+          <div class="card-topline">
+            <span class="module-icon system-icon" aria-hidden="true">◎</span>
+            <span class="unavailable-label">IN UMSETZUNG</span>
+          </div>
+          <p class="eyebrow">BETRIEBSMODUS</p>
+          <h3 id="system-title">Automatik</h3>
+          <div class="data-field mode-field">
+            <span class="micro-label">AKTUELLER MODUS</span>
+            <strong id="mode">Noch kein Status</strong>
+          </div>
+          <p class="card-description">ModeManager, Menü und Befehlsverteiler sind in der Firmware noch TODO. Der Modus wird hier angezeigt, aber nicht umgeschaltet.</p>
+          <div class="unavailable-foot"><span aria-hidden="true">—</span> Umschalten nicht verfügbar</div>
+        </article>
+      </div>
+
+      <section class="message-panel" aria-label="Rückmeldungen">
+        <span class="message-mark" aria-hidden="true">i</span>
+        <p id="app-message" role="status" aria-live="polite">Die Verbindung zur Firmware ist noch nicht verfügbar. Im lokalen Vorschaumodus kannst du das Layout ansehen; Hardwareaktionen bleiben deaktiviert.</p>
+      </section>
+    </main>
+
+    <footer>
+      <span class="footer-brand">ORCAONE <span>·</span> SMARTPHONE-MENÜ</span>
+      <span>WebSocket <code>/ws</code></span>
+    </footer>
+  </div>
   <script src="js/app.js"></script>
 </body>
 </html>

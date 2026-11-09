@@ -1,70 +1,247 @@
-// ============================================================================
-//  app.js - Verbindung zur Firmware + Bedienlogik der Weboberflaeche
-// ----------------------------------------------------------------------------
-//  Setzt den Vertrag aus docs/kommunikation/web-api.md um:
-//   - empfaengt Status-JSON vom ESP32 und aktualisiert die Anzeige
-//   - sendet Befehls-JSON bei Knopfdruck
-//  Dieses Geruest funktioniert bereits; neue Module hier analog ergaenzen.
-// ============================================================================
+// Browser client for docs/kommunikation/web-api.md. The firmware does not
+// currently start NetworkManager, so a live status is only available once its
+// WebSocket server is wired into main.cpp.
+(() => {
+  const RECONNECT_DELAY_MS = 2000;
+  const dom = {};
+  let socket = null;
+  let reconnectTimer = null;
+  let connected = false;
+  let statusReceived = false;
+  let modules = {};
+  let recording = false;
+  let preview = false;
 
-// WebSocket-Adresse: gleiche IP wie die Webseite, Pfad /ws.
-// (Beim Oeffnen direkt vom ESP32 passt location.host automatisch.)
-const WS_URL = `ws://${location.host}/ws`;
+  function byId(id) {
+    return document.getElementById(id);
+  }
 
-let socket;
+  function showMessage(message) {
+    dom.message.textContent = message;
+  }
 
-function connect() {
-  socket = new WebSocket(WS_URL);
+  function setConnection(state, label, summary) {
+    dom.connection.className = `connection connection-${state}`;
+    dom.connectionLabel.textContent = label;
+    dom.deviceSummary.textContent = summary;
+    dom.statusOrbit.classList.toggle("is-connected", state === "on");
+  }
 
-  socket.onopen  = () => setConn(true);
-  socket.onclose = () => { setConn(false); setTimeout(connect, 2000); }; // auto-reconnect
-  socket.onerror = () => socket.close();
+  function localPreviewLocation() {
+    const host = window.location.hostname.toLowerCase();
+    return window.location.protocol === "file:"
+      || host === "localhost"
+      || host === "127.0.0.1"
+      || host === "[::1]";
+  }
 
-  socket.onmessage = (ev) => {
-    let msg;
-    try { msg = JSON.parse(ev.data); } catch { return; }
-    if (msg.type === "status") updateStatus(msg);
-  };
-}
+  function moduleReady(name) {
+    const module = modules[name];
+    if (!module || typeof module.ok !== "boolean") return false;
+    if (name === "nfc") return module.ok && module.ready !== false;
+    return module.ok;
+  }
 
-// Einen Befehl an den ESP32 senden (Handy -> ESP32).
-function sendCommand(module, action, params = {}) {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  socket.send(JSON.stringify({ module, action, params }));
-}
+  function setModuleIndicator(id, state, label) {
+    const element = byId(id);
+    element.className = `module-ready ${state}`;
+    element.lastElementChild.textContent = label;
+  }
 
-// Anzeige anhand des empfangenen Status aktualisieren (ESP32 -> Handy).
-function updateStatus(s) {
-  setText("mode", s.mode === "no-mercy" ? "No-Mercy AKTIV" : "Aus");
+  function renderModuleStatus() {
+    const nfc = modules.nfc;
+    const ir = modules.ir;
+    const nfcReady = moduleReady("nfc");
+    const irReady = moduleReady("ir");
 
-  const m = s.modules || {};
-  if (m.nfc) setText("nfc-uid", m.nfc.lastUid || "–");
-  if (m.ir)  setText("ir-state", m.ir.recording ? "nimmt auf…" : "bereit");
-}
+    if (!statusReceived || !nfc || typeof nfc.ok !== "boolean") {
+      setModuleIndicator("nfc-ready", "", "Warte auf Status");
+      dom.nfcUid.textContent = "—";
+      dom.nfcNote.textContent = "Das NFC-Modul wurde noch nicht gemeldet.";
+    } else if (!nfcReady) {
+      setModuleIndicator("nfc-ready", "not-ready", "Nicht bereit");
+      dom.nfcUid.textContent = nfc.lastUid || "—";
+      dom.nfcNote.textContent = nfc.error || "PN532 nicht bereit oder nicht angeschlossen. Andere Module bleiben davon unberührt.";
+    } else {
+      setModuleIndicator("nfc-ready", "ready", "Bereit");
+      dom.nfcUid.textContent = nfc.lastUid || "—";
+      dom.nfcNote.textContent = nfc.lastUid
+        ? "Zuletzt erkannte UID · Tag lesen startet eine neue Suche."
+        : "Bereit. Tag an den PN532 halten und „Tag lesen“ wählen.";
+    }
 
-// --- Bedienelemente verdrahten ---
-window.addEventListener("DOMContentLoaded", () => {
-  // No-Mercy-Umschaltung (per Handy an/aus): schaltet Jammer + IR-Shutoff.
-  byId("btn-nomercy-on").onclick  = () => sendCommand("system", "setMode", { mode: "nomercy" });
-  byId("btn-nomercy-off").onclick = () => sendCommand("system", "setMode", { mode: "off" });
+    if (!statusReceived || !ir || typeof ir.ok !== "boolean") {
+      setModuleIndicator("ir-ready", "", "Warte auf Status");
+      dom.irState.textContent = "Noch kein Status";
+      dom.irProtocol.textContent = "—";
+      dom.irNote.textContent = "Das Infrarot-Modul wurde noch nicht gemeldet.";
+      recording = false;
+    } else if (!irReady) {
+      setModuleIndicator("ir-ready", "not-ready", "Nicht bereit");
+      dom.irState.textContent = "Modul nicht bereit";
+      dom.irProtocol.textContent = ir.lastProtocol || "—";
+      dom.irNote.textContent = "Das Infrarot-Modul meldet sich als nicht verfügbar.";
+      recording = false;
+    } else {
+      recording = ir.recording === true || ir.state === "recording";
+      const hardwareDetectable = ir.hardwareDetectable !== false;
+      setModuleIndicator(
+        "ir-ready",
+        hardwareDetectable ? "ready" : "unverified",
+        hardwareDetectable ? (recording ? "Aufnahme läuft" : "Bereit") : "Sensor nicht prüfbar"
+      );
+      dom.irState.textContent = recording ? "Aufnahme läuft" : "Bereit";
+      dom.irProtocol.textContent = ir.lastProtocol || "—";
+      dom.irNote.textContent = !hardwareDetectable
+        ? recording
+          ? "Aufnahme läuft. Ob ein IR-Empfänger angeschlossen ist, kann die Firmware nicht erkennen."
+          : "Empfänger und Sender sind nicht prüfbar. Ohne Empfänger werden keine Signale aufgenommen."
+        : recording
+          ? "Warte auf ein Signal. Du kannst die Aufnahme jederzeit stoppen."
+          : "Aufnahme speichert das nächste empfangene Signal in einem freien Speicherplatz.";
+    }
 
-  // Alle Buttons mit data-module/data-action automatisch verdrahten.
-  document.querySelectorAll("button[data-module]").forEach((btn) => {
-    btn.onclick = () => {
-      const params = {};
-      if (btn.dataset.slot) params.slot = Number(btn.dataset.slot);
-      sendCommand(btn.dataset.module, btn.dataset.action, params);
+    dom.nfcRead.disabled = !connected || !statusReceived || !nfcReady;
+    dom.irRecord.disabled = !connected || !statusReceived || !irReady || recording;
+    dom.irStop.disabled = !connected || !statusReceived || !irReady || !recording;
+  }
+
+  function setOfflineState(message) {
+    connected = false;
+    statusReceived = false;
+    modules = {};
+    recording = false;
+    renderModuleStatus();
+    dom.mode.textContent = "Noch kein Status";
+    dom.statusTime.textContent = "—";
+    setConnection("off", "Getrennt", "Keine Verbindung zur Firmware");
+    showMessage(message);
+  }
+
+  function sendCommand(module, action, params) {
+    if (!connected || !statusReceived || !moduleReady(module) || !socket || socket.readyState !== WebSocket.OPEN) {
+      showMessage("Aktion nicht gesendet: Verbindung oder Modulstatus ist nicht verfügbar.");
+      return;
+    }
+
+    try {
+      socket.send(JSON.stringify({ module, action, params: params || {} }));
+      const actionLabel = action === "read"
+        ? "NFC-Leseanfrage gesendet."
+        : action === "record"
+          ? "IR-Aufnahme angefordert."
+          : "Stopp-Anfrage gesendet.";
+      showMessage(`${actionLabel} Es gibt laut Protokoll keine Befehlsquittung; der Modulstatus wird per Statusmeldung aktualisiert.`);
+    } catch (error) {
+      showMessage("Der Befehl konnte nicht gesendet werden. Verbindung prüfen und erneut versuchen.");
+    }
+  }
+
+  function updateStatus(status) {
+    const firstStatus = !statusReceived;
+    connected = true;
+    statusReceived = true;
+    modules = status.modules && typeof status.modules === "object" ? status.modules : {};
+
+    if (status.mode === "auto") dom.mode.textContent = "Automatik";
+    else if (status.mode === "manual") dom.mode.textContent = "Manuell";
+    else dom.mode.textContent = "Nicht gemeldet";
+
+    const time = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    dom.statusTime.textContent = time.format(new Date());
+    setConnection("on", "Verbunden", "ESP32 verbunden · Status aktuell");
+    renderModuleStatus();
+    if (firstStatus) {
+      showMessage("Live-Status vom ESP32 empfangen. Die Firmware sendet laut Protokoll Statusmeldungen ungefähr alle 500 ms.");
+    }
+  }
+
+  function onMessage(event) {
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch (error) {
+      showMessage("Eine ungültige Nachricht vom Gerät wurde ignoriert.");
+      return;
+    }
+
+    if (message && message.type === "status") {
+      updateStatus(message);
+    } else if (message && message.type === "event") {
+      const prefix = message.ok === false ? "Firmware meldet einen Fehler" : "Firmware-Ereignis";
+      showMessage(message.message ? `${prefix}: ${message.message}` : `${prefix} empfangen.`);
+    }
+  }
+
+  function connect() {
+    if (preview || !/^https?:$/.test(window.location.protocol) || !window.location.host) {
+      preview = true;
+      setOfflineState("Lokale Vorschau: Es wird keine WebSocket-Verbindung geöffnet. Hardwareaktionen sind deaktiviert. Für Live-Daten muss die Seite vom ESP32 mit verbundenem WebSocket-Server bereitgestellt werden.");
+      dom.connection.className = "connection connection-preview";
+      dom.connectionLabel.textContent = "Lokale Vorschau";
+      dom.deviceSummary.textContent = "Offline · nur Layoutvorschau";
+      dom.linkMode.textContent = "LOKALE VORSCHAU";
+      return;
+    }
+
+    const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+    try {
+      socket = new WebSocket(`${scheme}//${window.location.host}/ws`);
+    } catch (error) {
+      setOfflineState("WebSocket konnte nicht gestartet werden. Hardwareaktionen bleiben deaktiviert.");
+      return;
+    }
+
+    socket.onopen = () => {
+      connected = true;
+      setConnection("on", "Verbunden", "Verbunden · warte auf Status");
+      showMessage("WebSocket verbunden. Warte auf die erste Statusmeldung des ESP32.");
+      renderModuleStatus();
     };
+    socket.onmessage = onMessage;
+    socket.onerror = () => {
+      if (socket && socket.readyState !== WebSocket.CLOSED) socket.close();
+    };
+    socket.onclose = () => {
+      connected = false;
+      statusReceived = false;
+      modules = {};
+      recording = false;
+      renderModuleStatus();
+      dom.mode.textContent = "Noch kein Status";
+      dom.statusTime.textContent = "—";
+      setConnection("off", "Getrennt", "Verbindung zur Firmware getrennt");
+      showMessage("Keine Verbindung zur Firmware. Erneuter Verbindungsversuch in 2 Sekunden. Netzwerk- und WebSocket-Integration sind in main.cpp noch TODO.");
+      if (!preview) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY_MS);
+      }
+    };
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    dom.connection = byId("conn");
+    dom.connectionLabel = byId("conn-label");
+    dom.deviceSummary = byId("device-summary");
+    dom.statusOrbit = document.querySelector(".status-orbit");
+    dom.statusTime = byId("status-time");
+    dom.linkMode = byId("link-mode");
+    dom.nfcUid = byId("nfc-uid");
+    dom.nfcNote = byId("nfc-note");
+    dom.irState = byId("ir-state");
+    dom.irProtocol = byId("ir-protocol");
+    dom.irNote = byId("ir-note");
+    dom.mode = byId("mode");
+    dom.message = byId("app-message");
+    dom.nfcRead = byId("btn-nfc-read");
+    dom.irRecord = byId("btn-ir-record");
+    dom.irStop = byId("btn-ir-stop");
+
+    dom.nfcRead.addEventListener("click", () => sendCommand("nfc", "read"));
+    dom.irRecord.addEventListener("click", () => sendCommand("ir", "record"));
+    dom.irStop.addEventListener("click", () => sendCommand("ir", "stop"));
+
+    preview = localPreviewLocation();
+    connect();
   });
-
-  connect();
-});
-
-// --- kleine Helfer ---
-function byId(id) { return document.getElementById(id); }
-function setText(id, text) { const el = byId(id); if (el) el.textContent = text; }
-function setConn(on) {
-  const el = byId("conn");
-  el.textContent = on ? "verbunden" : "getrennt";
-  el.className = "conn " + (on ? "on" : "off");
-}
+})();
