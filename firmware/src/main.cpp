@@ -40,20 +40,25 @@ void setup() {
   Serial.begin(115200);
   Serial.println("\n[OrcaOne] Start...");
 
-  // SPI-Bus ZENTRAL und als ERSTES mit den NRF24-Pins initialisieren.
-  // Grund: SPIClass::begin() kehrt beim zweiten Aufruf vorzeitig zurueck
-  // (if(_spi) return true;) - der ERSTE Aufrufer legt die Pins fest. Liefe
-  // Storage.begin() (SD.begin -> SPI.begin ohne Pins) zuerst, wuerde die
-  // NRF24-Pinwahl ignoriert und der Chip antwortet nicht. SD und NRF24 teilen
-  // den Bus und trennen sich ueber eigene CS-Pins (PIN_SD_CS / PIN_NRF_CSN).
+  // SPI-Bus zentral mit den NRF24-Pins initialisieren, dann den NRF24 ZUERST
+  // in Betrieb nehmen - VOR der SD. Begruendung: NRF24 und SD teilen den
+  // SPI-Bus. Ein fehlender/fehlschlagender SD-Mount (SD.begin) stoert den Bus
+  // so, dass ein DANACH initialisierter NRF24 nicht mehr antwortet (genau das
+  // Symptom: "keine SD" + "Keine SPI-Antwort vom NRF24"). Der aktive Sender
+  // muss zuerst stehen; die SD toleriert Fehlstart (RAM-Fallback) und kommt
+  // danach. SD und NRF24 trennen sich ueber eigene CS-Pins (PIN_SD_CS/CSN).
   SPI.begin(PIN_NRF_SCK, PIN_NRF_MISO, PIN_NRF_MOSI, PIN_NRF_CSN);
+  jammer.begin();
 
-  // Zentraler Speicher-Dienst: waehlt SD (falls Karte) sonst RAM.
-  // Muss VOR den Modulen laufen, damit sie direkt speichern koennen.
+  // Zentraler Speicher-Dienst: waehlt SD (falls Karte) sonst RAM. Laeuft VOR
+  // den uebrigen Modulen, damit diese in ihrem begin() direkt speichern koennen.
   Storage.begin();
 
-  // Alle Module einmal initialisieren.
-  for (Module* m : modules) m->begin();
+  // Uebrige Module initialisieren (jammer ist oben bereits gestartet).
+  for (Module* m : modules) {
+    if (m == &jammer) continue;
+    m->begin();
+  }
 
   // Befehls-Verteiler kennt alle Module; die Konsole nutzt ihn.
   router.begin(modules, MODULE_COUNT);
