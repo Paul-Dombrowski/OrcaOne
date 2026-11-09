@@ -22,6 +22,10 @@ CONFIG_ARDUINO_LOOP_STACK_SIZE=16384
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
 
+# Das Firmware-Image ist groesser als 1 MiB. Die grosse Einzel-App-Partition
+# bietet 1,5 MiB und benoetigt keine OTA-Slots.
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
 # FatFs: lange Dateinamen erlauben. Ohne diese Zeilen gilt nur 8.3 (max. 8
 # Zeichen Name + 3 Endung) -> der Speicher-Dienst scheitert, weil Dateinamen
 # wie /nfc/<16-stellige-Kartennummer>.json zu lang sind (f_open -> FR_INVALID_NAME).
