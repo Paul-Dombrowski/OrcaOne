@@ -60,12 +60,25 @@ void DisplayModule::begin() {
     return;
   }
 
+  // Praesenz des OLED am geteilten I2C-Bus (mit PN532) per Adress-Ping pruefen.
+  // Wire.begin() meldet nur den Bus-Controller, nicht ob der Chip antwortet.
+  // Ohne diese Pruefung wuerde u8g2 blind auf ein fehlendes Display schreiben
+  // -> Dauerspam "i2c_master_transmit failed: ESP_ERR_INVALID_STATE". Fehlt das
+  // Display, laeuft der Rest weiter (ARBEITSWEISE.md §6), analog zu NFC/Jammer.
+  Wire.beginTransmission(OLED_I2C_ADDR);
+  if (Wire.endTransmission() != 0) {
+    Serial.println("[display] OLED (SH1106) nicht gefunden - Modul inaktiv");
+    _ok = false;
+    return;
+  }
+
   u8g2_Setup_sh1106_i2c_128x64_noname_f(
       &_display, U8G2_R0, wireByteCallback, wireGpioAndDelayCallback);
   u8x8_SetI2CAddress(&_display.u8x8, OLED_I2C_ADDR << 1);
   u8g2_InitDisplay(&_display);
   u8g2_SetPowerSave(&_display, 0);
 
+  _ok = true;
   randomSeed(micros());
   initBubbles();
   Serial.println("[display] Orca-Menue bereit.");
