@@ -37,7 +37,7 @@ void JammerModule::begin() {
   _radio.setRetries(0, 0);
   _radio.setPayloadSize(5);
   _radio.setAddressWidth(3);
-  _radio.setPALevel(RF24_PA_MAX, true);
+  _radio.setPALevel(JAM_PA_LEVEL, true);
   _radio.setDataRate(RF24_2MBPS);
   _radio.setCRCLength(RF24_CRC_DISABLED);
   _radio.stopListening();
@@ -57,7 +57,7 @@ void JammerModule::sweepTask(void* arg) {
 
   // Traeger EINMAL anschalten, danach nur noch den Kanal umstimmen (wie im
   // erprobten Standalone). NICHT pro Kanal neu starten.
-  self->_radio.startConstCarrier(RF24_PA_MAX, self->_channel);
+  self->_radio.startConstCarrier(JAM_PA_LEVEL, self->_channel);
 
   uint32_t lastYield = millis();
   while (self->_running) {
