@@ -58,12 +58,27 @@ void JammerModule::sweepTask(void* arg) {
   // erprobten Standalone). NICHT pro Kanal neu starten.
   self->_radio.startConstCarrier(RF24_PA_MAX, self->_channel);
 
+  // TEMP-DIAGNOSE: beweist, dass der Task wirklich laeuft und den Traeger-Code
+  // erreicht (nach Klaerung wieder entfernen).
+  Serial.printf("[jammer][dbg] sweepTask laeuft auf core %d, Traeger an ab ch=%u\n",
+                xPortGetCoreID(), (unsigned)self->_channel);
+
   uint32_t lastYield = millis();
+  uint32_t lastReport = millis();
+  uint32_t sweeps = 0;
   while (self->_running) {
     for (uint8_t ch = JAM_CH_MIN; ch <= JAM_CH_MAX; ++ch) {
       self->_radio.setChannel(ch);   // flat-out umstimmen, kein Delay
     }
     self->_channel = JAM_CH_MAX;
+    ++sweeps;
+
+    // TEMP-DIAGNOSE: wie viele volle Band-Durchlaeufe pro Sekunde?
+    if (millis() - lastReport >= 1000) {
+      Serial.printf("[jammer][dbg] %lu sweeps/s\n", (unsigned long)sweeps);
+      sweeps = 0;
+      lastReport = millis();
+    }
 
     // Kurz yielden, damit der Idle-Task auf diesem Core laeuft und den
     // Task-Watchdog bedient. ~<2 % Sendezeit, HF-technisch vernachlaessigbar
