@@ -120,8 +120,15 @@ bool EmvReader::readCard(CardData& out, EmvCapture& cap) {
       gotData = parseRecordData(out, gpo, gpoLen);
     }
     //    b) Sonst klassisch ueber das AFL die Records lesen.
-    if (!gotData) {
-      gotData = readCardRecords(aflFound ? afl : nullptr, aflLen, out, cap);
+    //       WICHTIG: Der GPO-Parse meldet bereits Erfolg, wenn irgendein Tag
+    //       erkannt wurde (z. B. AIP Tag 82 im Format-2-Template 77). Bei
+    //       klassischem EMV (Maestro, Girocard, Mastercard ohne Track 2 in der
+    //       GPO) liegt die PAN aber erst in den Records. Daher NICHT an gotData
+    //       haengen, sondern an der fehlenden Kartennummer: solange keine PAN
+    //       vorliegt, immer die AFL-Records lesen.
+    if (out.cardNumber.length() == 0) {
+      const bool recData = readCardRecords(aflFound ? afl : nullptr, aflLen, out, cap);
+      gotData = gotData || recData;
     }
 
     if (gotData) {
