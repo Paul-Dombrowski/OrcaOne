@@ -83,19 +83,17 @@ void DisplayModule::begin() {
 
   u8g2_SetPowerSave(&_display, 0);
 
-  // SH1106-Positionierung + Randspalten leeren.
-  // Dieser u8g2-Fork hat KEINEN sh1106_128x64-Treiber; das CMake schiebt den
-  // SSD1306-Treiber unter. Mit Spalten-Offset 2 (SH1106, 132 Spalten) landet der
-  // Inhalt korrekt - ABER SendBuffer schreibt dann nur Panel-Spalten 2..129, die
-  // sichtbaren Spalten 0/1 bleiben mit Power-On-Muell stehen (Streifen links).
-  // ClearDisplay des SSD1306-Treibers loescht nur sein Fenster, nicht 0/1.
-  // Loesung: zwei leere Sende-Durchlaeufe mit Offset 0 und 2 schwaerzen einmalig
-  // Panel-Spalten 0..129. Danach bleibt der Betriebs-Offset 2.
+  // SH1106-Spalten-Offset fuer DIESES Panel: 0 (sichtbar ab Spalte 0; NICHT die
+  // bei manchen 1,3"-Modulen uebliche Zentrierung mit Offset 2 - sonst waere
+  // alles 2px zu weit rechts: Streifen links + Pfeile rechts abgeschnitten).
+  // Zur Sicherheit erst Panel-Spalten 0..129 einmalig schwaerzen (Power-On-Muell
+  // in Randspalten, die der SSD1306-Ersatztreiber beim Clear sonst auslaesst);
+  // der Durchlauf endet beim Betriebs-Offset 0.
   u8g2_ClearBuffer(&_display);
-  _display.u8x8.x_offset = 0;
-  u8g2_SendBuffer(&_display);
   _display.u8x8.x_offset = 2;
-  u8g2_SendBuffer(&_display);
+  u8g2_SendBuffer(&_display);  // Panel 2..129 schwarz
+  _display.u8x8.x_offset = 0;
+  u8g2_SendBuffer(&_display);  // Panel 0..127 schwarz, Betriebs-Offset 0
 
   _ok = true;
   _screen = S_MENU;
