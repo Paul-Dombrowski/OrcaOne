@@ -53,6 +53,10 @@ private:
   // Web-Dateien. Fehlschlag wird gemeldet, blockiert aber nicht (ARBEITSWEISE §6).
   void startHttpServer();
 
+  // Ein per /ws empfangenes Befehls-JSON im loop()-Task verarbeiten (Dispatch
+  // ueber den CommandRouter + Event-Quittung an die Clients).
+  void processWebCommand(const char* json);
+
   bool _ready = false;        // true, sobald softAP() erfolgreich war
   void* _httpServer = nullptr; // httpd_handle_t (void*), nullptr = nicht gestartet
   CommandRouter* _router = nullptr;  // fuer Status-Push + Befehle ueber /ws

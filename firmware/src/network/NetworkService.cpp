@@ -13,6 +13,8 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <esp_http_server.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
 
 #include <cstring>
 
@@ -29,16 +31,24 @@ extern const uint8_t app_js_end[]       asm("_binary_app_js_end");
 
 namespace {
 
-// Router + Server-Handle fuer die WebSocket-Handler (laufen in eigenen httpd-
-// Tasks und erreichen die privaten NetworkService-Felder nicht direkt). Werden
-// in startHttpServer() gesetzt.
+// Router fuer den Befehls-Dispatch. WICHTIG: dispatch() und statusJson() der
+// Module duerfen laut Module.h NUR aus dem loop()-Task laufen. Der /ws-Handler
+// laeuft aber im httpd-Task; er dispatcht daher NICHT direkt, sondern legt den
+// Befehl in g_cmdQueue. NetworkService::update() (loop-Task) arbeitet die Queue
+// ab - so bleibt jeder Modulzugriff single-threaded (keine Races).
 CommandRouter* g_router = nullptr;
-httpd_handle_t g_server = nullptr;
 
 // Obergrenze paralleler Clients fuer die Socket-Liste (httpd-Default ist 7).
 constexpr size_t kMaxWsClients = 8;
 
-// Auftrag fuer einen asynchronen Status-Push an EINEN Client. Wird per
+// Eingehender Befehl vom Handy (rohes JSON), vom httpd-Task in die Queue gelegt
+// und im loop()-Task verarbeitet. Fixe Groesse, damit kein Heap im httpd-Task.
+struct WsCommand {
+  char json[256];
+};
+QueueHandle_t g_cmdQueue = nullptr;
+
+// Auftrag fuer einen asynchronen Frame-Versand an EINEN Client. Wird per
 // httpd_queue_work im httpd-Task ausgefuehrt, damit Senden NICHT gleichzeitig
 // aus Loop- und httpd-Task auf denselben Socket laeuft (sonst zerfranste
 // Frames). Der Auftrag besitzt eine eigene Kopie der Nutzdaten.
@@ -60,7 +70,24 @@ void pushWork(void* arg) {
   delete job;
 }
 
-// Gesamtstatus als JSON fuer den Push ans Handy. app.js erwartet
+// Text-Frame an ALLE verbundenen WebSocket-Clients schicken (Status + Events).
+// Aufruf aus dem loop()-Task; der eigentliche Versand laeuft per httpd_queue_work
+// im httpd-Task (thread-sicher gegenueber parallelen Sends auf demselben Socket).
+void broadcastToClients(httpd_handle_t server, const String& payload) {
+  if (server == nullptr) return;
+  size_t count = kMaxWsClients;
+  int clientFds[kMaxWsClients];
+  if (httpd_get_client_list(server, &count, clientFds) != ESP_OK) return;
+  for (size_t i = 0; i < count; ++i) {
+    const int fd = clientFds[i];
+    if (httpd_ws_get_fd_info(server, fd) != HTTPD_WS_CLIENT_WEBSOCKET) continue;
+    auto* job = new AsyncPush{server, fd, payload};
+    if (httpd_queue_work(server, pushWork, job) != ESP_OK) delete job;
+  }
+}
+
+// Gesamtstatus als JSON. NUR aus dem loop()-Task aufrufen (liest Modul-State via
+// buildStatus -> statusJson). app.js erwartet
 // { "type":"status", "mode":..., "modules":{...} } (siehe web-api.md).
 String buildStatusJson() {
   JsonDocument doc;
@@ -98,27 +125,16 @@ esp_err_t serveAsset(httpd_req_t* req) {
                          asset->length);
 }
 
-// Eine JSON-Antwort ueber den aktuellen WebSocket zuruecksenden (Text-Frame).
-void wsSendText(httpd_req_t* req, const String& payload) {
-  httpd_ws_frame_t frame;
-  memset(&frame, 0, sizeof(frame));
-  frame.type = HTTPD_WS_TYPE_TEXT;
-  frame.payload = reinterpret_cast<uint8_t*>(const_cast<char*>(payload.c_str()));
-  frame.len = payload.length();
-  httpd_ws_send_frame(req, &frame);
-}
-
-// WebSocket-Endpunkt /ws (Stufe 2b): nimmt Befehle vom Handy entgegen und
-// reicht sie ueber den CommandRouter an die Module weiter - DERSELBE Weg wie
-// Menue und Serial-Konsole. Nach dem Dispatch geht eine Quittung
-// { "type":"event", "ok":bool, "message":... } zurueck. Der Live-Status wird
-// nicht hier, sondern zyklisch in NetworkService::update() gepusht.
+// WebSocket-Endpunkt /ws (Stufe 2b): nimmt Befehle vom Handy entgegen. Der
+// Handler laeuft im httpd-Task und darf deshalb NICHT selbst dispatchen (Module
+// gehoeren dem loop-Task). Er legt das rohe Befehls-JSON in g_cmdQueue; die
+// Verarbeitung + Quittung passiert in NetworkService::update(). Der Live-Status
+// wird ebenfalls dort zyklisch gepusht.
 esp_err_t handleWebSocket(httpd_req_t* req) {
   if (req->method == HTTP_GET) {
-    // Der Server hat den Upgrade bereits bestaetigt (HTTP 101). Direkt einen
-    // ersten Status schicken, damit das Handy nicht 500 ms auf Daten wartet.
+    // Der Server hat den Upgrade bereits bestaetigt (HTTP 101). Status folgt mit
+    // dem naechsten zyklischen Push (<= 500 ms) aus update().
     Serial.println("[net] WebSocket /ws verbunden.");
-    wsSendText(req, buildStatusJson());
     return ESP_OK;
   }
 
@@ -127,52 +143,22 @@ esp_err_t handleWebSocket(httpd_req_t* req) {
   memset(&frame, 0, sizeof(frame));
   frame.type = HTTPD_WS_TYPE_TEXT;
   if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK) return ESP_FAIL;
-  if (frame.len == 0 || frame.len >= 512) return ESP_OK;  // leer/zu gross
+  if (frame.len == 0 || frame.len >= sizeof(WsCommand::json)) {
+    return ESP_OK;  // leer oder zu gross fuer die Queue -> verwerfen
+  }
 
-  uint8_t buffer[512];
-  frame.payload = buffer;
-  if (httpd_ws_recv_frame(req, &frame, sizeof(buffer) - 1) != ESP_OK) {
+  WsCommand cmd;
+  frame.payload = reinterpret_cast<uint8_t*>(cmd.json);
+  if (httpd_ws_recv_frame(req, &frame, sizeof(cmd.json) - 1) != ESP_OK) {
     return ESP_FAIL;
   }
-  buffer[frame.len] = 0;  // null-terminieren fuer den JSON-Parser
+  cmd.json[frame.len] = 0;  // null-terminieren fuer den JSON-Parser im loop-Task
 
-  // Befehl parsen: { "module":..., "action":..., "params":{...} }.
-  JsonDocument doc;
-  if (deserializeJson(doc, reinterpret_cast<const char*>(buffer)) !=
-      DeserializationError::Ok) {
-    JsonDocument resp;
-    resp["type"] = "event";
-    resp["ok"] = false;
-    resp["message"] = "Ungueltiger Befehl (JSON)";
-    String out;
-    serializeJson(resp, out);
-    wsSendText(req, out);
-    return ESP_OK;
+  // In die Queue zur Verarbeitung im loop-Task. Nicht blockieren: ist die Queue
+  // voll, wird der Befehl verworfen (besser als den httpd-Task aufzuhalten).
+  if (g_cmdQueue != nullptr) {
+    xQueueSend(g_cmdQueue, &cmd, 0);
   }
-
-  const char* module = doc["module"] | "";
-  const char* action = doc["action"] | "";
-  Serial.printf("[net] /ws > %s %s\n", module, action);
-
-  String errorMessage;
-  bool ok = false;
-  if (g_router != nullptr) {
-    ok = g_router->dispatch(module, action, doc["params"].as<JsonObjectConst>(),
-                            &errorMessage);
-  } else {
-    errorMessage = "Router nicht bereit";
-  }
-
-  // Quittung zuruecksenden; der aktualisierte Status folgt per zyklischem Push.
-  JsonDocument resp;
-  resp["type"] = "event";
-  resp["ok"] = ok;
-  resp["message"] =
-      ok ? "Befehl ausgefuehrt"
-         : (errorMessage.length() > 0 ? errorMessage : "Befehl abgelehnt");
-  String out;
-  serializeJson(resp, out);
-  wsSendText(req, out);
   return ESP_OK;
 }
 
@@ -221,8 +207,15 @@ void NetworkService::startHttpServer() {
     return;
   }
   _httpServer = server;
-  g_server = server;      // fuer den Status-Push aus update()
-  g_router = _router;     // fuer Befehls-Dispatch im WebSocket-Handler
+  g_router = _router;     // fuer den Dispatch in update() (loop-Task)
+
+  // Queue fuer eingehende /ws-Befehle (httpd-Task -> loop-Task). Einmalig.
+  if (g_cmdQueue == nullptr) {
+    g_cmdQueue = xQueueCreate(8, sizeof(WsCommand));
+    if (g_cmdQueue == nullptr) {
+      Serial.println("[net] WARNUNG: Befehls-Queue nicht angelegt - /ws-Befehle inaktiv.");
+    }
+  }
 
   // Routen: "/" und "/index.html" -> Seite; dazu CSS und JS (von index.html
   // relativ referenziert). GET genuegt; die Seite loest Aktionen ueber /ws aus.
@@ -249,27 +242,56 @@ void NetworkService::startHttpServer() {
 }
 
 void NetworkService::update() {
-  // Stufe 2b: etwa alle 500 ms den Live-Status an ALLE verbundenen WebSocket-
-  // Clients schieben. Nicht-blockierend (ARBEITSWEISE.md §6): nur ein kurzer
-  // JSON-Aufbau + asynchrones Senden, keine Wartezeiten.
+  // Laeuft im loop()-Task. MUSS nicht-blockierend bleiben (ARBEITSWEISE.md §6).
   if (_httpServer == nullptr || _router == nullptr) return;
-  if (millis() - _lastPush < 500) return;
-  _lastPush = millis();
-
   httpd_handle_t server = static_cast<httpd_handle_t>(_httpServer);
 
-  // Liste der offenen Sockets holen; daraus nur die echten WebSocket-Clients.
-  size_t count = kMaxWsClients;
-  int clientFds[kMaxWsClients];
-  if (httpd_get_client_list(server, &count, clientFds) != ESP_OK) return;
-
-  const String payload = buildStatusJson();
-
-  for (size_t i = 0; i < count; ++i) {
-    const int fd = clientFds[i];
-    if (httpd_ws_get_fd_info(server, fd) != HTTPD_WS_CLIENT_WEBSOCKET) continue;
-    // Senden im httpd-Task ausfuehren lassen (thread-sicher, siehe AsyncPush).
-    auto* job = new AsyncPush{server, fd, payload};
-    if (httpd_queue_work(server, pushWork, job) != ESP_OK) delete job;
+  // 1) Eingegangene /ws-Befehle hier (im loop-Task) abarbeiten - so ist der
+  //    Modulzugriff single-threaded, genau wie bei Menue und Serial-Konsole.
+  if (g_cmdQueue != nullptr) {
+    WsCommand cmd;
+    while (xQueueReceive(g_cmdQueue, &cmd, 0) == pdTRUE) {
+      processWebCommand(cmd.json);
+    }
   }
+
+  // 2) Etwa alle 500 ms den Live-Status an ALLE verbundenen Clients schieben.
+  if (millis() - _lastPush < 500) return;
+  _lastPush = millis();
+  broadcastToClients(server, buildStatusJson());
+}
+
+void NetworkService::processWebCommand(const char* json) {
+  // Rohes Befehls-JSON vom Handy auswerten und ueber den CommandRouter an das
+  // Zielmodul geben - DERSELBE Weg wie Menue und Serial-Konsole. Danach eine
+  // Quittung { "type":"event", ... } an alle Clients broadcasten.
+  JsonDocument doc;
+  bool ok = false;
+  String message;
+
+  if (deserializeJson(doc, json) != DeserializationError::Ok) {
+    message = "Ungueltiger Befehl (JSON)";
+  } else {
+    const char* module = doc["module"] | "";
+    const char* action = doc["action"] | "";
+    Serial.printf("[net] /ws > %s %s\n", module, action);
+
+    String errorMessage;
+    if (g_router != nullptr) {
+      ok = g_router->dispatch(module, action,
+                              doc["params"].as<JsonObjectConst>(), &errorMessage);
+    } else {
+      errorMessage = "Router nicht bereit";
+    }
+    message = ok ? "Befehl ausgefuehrt"
+                 : (errorMessage.length() > 0 ? errorMessage : "Befehl abgelehnt");
+  }
+
+  JsonDocument resp;
+  resp["type"] = "event";
+  resp["ok"] = ok;
+  resp["message"] = message;
+  String out;
+  serializeJson(resp, out);
+  broadcastToClients(static_cast<httpd_handle_t>(_httpServer), out);
 }

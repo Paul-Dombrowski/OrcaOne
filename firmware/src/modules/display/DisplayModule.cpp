@@ -836,7 +836,8 @@ void DisplayModule::startScreen(Screen screen) {
   if (!isMenuScreen(screen) && isMenuScreen(_screen)) {
     _returnTo = _screen;
   }
-  if (screen != S_MESSAGE) _message = "";
+  // _message gehoert zu den Meldungs-Bildern; fuer alle anderen Screens leeren.
+  if (screen != S_MESSAGE && screen != S_ACTION_RESULT) _message = "";
   _screen = screen;
   _lastFrame = 0;
   _needsRedraw = true;
