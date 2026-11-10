@@ -46,14 +46,21 @@ void JammerModule::begin() {
   _ok = true;
   Serial.println("[jammer] NRF24 bereit");
 
-  // === TEMP DIAGNOSE H6 (Register-Abgleich, WIEDER ENTFERNEN) ================
-  // NRF24-Register direkt nach der Konfiguration ausgeben. 1:1 vergleichbar mit
-  // radio.printPrettyDetails() aus dem FUNKTIONIERENDEN Standalone-Sketch.
-  // Erwartung bei korrektem Betrieb: PA Power = PA_MAX, Data Rate = 2 MBPS,
-  // und der Chip als "nRF24L01+" (P-Variante) erkannt.
-  Serial.println("[jammer][DIAG] --- printPrettyDetails nach Konfiguration ---");
-  _radio.printPrettyDetails();
-  Serial.println("[jammer][DIAG] --------------------------------------------");
+  // === SPIKE (Wegwerf, WIEDER ENTFERNEN): Jammen EXAKT wie der Standalone =====
+  // Der Standalone baut den Traeger in setup() auf (ungestoert, bevor der
+  // Scheduler etwas anderes macht) und sweept dann dauerhaft im loop(). Genau das
+  // bilden wir hier ab: Traeger JETZT (setup-Kontext) starten, Sweep sofort und
+  // dauerhaft laufen lassen. Dieser Build jammt ab dem Booten durchgehend - kein
+  // "jammer start" noetig. Zum Beenden neu flashen.
+  // Ja -> die Firmware KANN jammen, die Ursache lag im start/stop-/Task-Ablauf.
+  // Nein -> es ist der ESP-IDF-Build selbst, nicht der Modulcode.
+  Serial.println("[jammer][SPIKE] Dauer-Jammen ab Boot (Standalone-Nachbau).");
+  _running = true;
+  _active = true;
+  _radio.startConstCarrier(JAM_PA_LEVEL, _channel);
+  xTaskCreatePinnedToCore(&JammerModule::sweepTask, "jam",
+                          JAM_TASK_STACK, this, JAM_TASK_PRIORITY,
+                          nullptr, JAM_TASK_CORE);
   // ===========================================================================
 }
 
@@ -65,32 +72,22 @@ void JammerModule::update() {
 void JammerModule::sweepTask(void* arg) {
   auto* self = static_cast<JammerModule*>(arg);
 
-  // Traeger EINMAL anschalten, danach nur noch den Kanal umstimmen (wie im
-  // erprobten Standalone). NICHT pro Kanal neu starten.
-  self->_radio.startConstCarrier(JAM_PA_LEVEL, self->_channel);
-
-  // === TEMP DIAGNOSE H6 (Register-Abgleich, WIEDER ENTFERNEN) ================
-  // Registerzustand WAEHREND des Dauertraegers ausgeben. Nur hier sind die
-  // Const-Carrier-Bits im RF_SETUP gesetzt (CONT_WAVE + PLL_LOCK) - das ist der
-  // Zustand, der ueber die tatsaechliche Sendeleistung entscheidet.
-  Serial.println("[jammer][DIAG] --- printPrettyDetails bei aktivem Traeger ---");
-  self->_radio.printPrettyDetails();
-  Serial.println("[jammer][DIAG] ---------------------------------------------");
-  // ===========================================================================
-
+  // SPIKE: Der Traeger wurde bereits in begin() (setup-Kontext) gestartet - hier
+  // NUR sweepen, mit dem two()-Muster des Standalone: EIN +/-2-Schritt pro
+  // Durchlauf, hin und her ueber das Band (genau wie dort die Default-Logik).
   uint32_t lastYield = millis();
   while (self->_running) {
+    // VOLLER Sweep ueber ALLE Kanaele (0..80, nicht nur ungerade) - deckt das
+    // ganze 2,4-GHz-Band ab. Kurze Verweildauer pro Kanal fuer Sendeenergie.
     for (uint8_t ch = JAM_CH_MIN; ch <= JAM_CH_MAX; ++ch) {
-      self->_radio.setChannel(ch);   // flat-out umstimmen, kein Delay
-    }
-    self->_channel = JAM_CH_MAX;
+      self->_radio.setChannel(ch);
+      self->_channel = ch;
+      delayMicroseconds(30);
 
-    // Kurz yielden, damit der Idle-Task auf diesem Core laeuft und den
-    // Task-Watchdog bedient. ~<2 % Sendezeit, HF-technisch vernachlaessigbar
-    // (der Standalone yieldet effektiv einmal pro loop()-Durchlauf).
-    if (millis() - lastYield >= JAM_WDT_YIELD_MS) {
-      vTaskDelay(1);
-      lastYield = millis();
+      if (millis() - lastYield >= JAM_WDT_YIELD_MS) {
+        vTaskDelay(1);
+        lastYield = millis();
+      }
     }
   }
 

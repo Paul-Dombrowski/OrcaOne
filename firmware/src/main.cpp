@@ -76,11 +76,10 @@ void setup() {
   display.setCommandRouter(&router);
   Console.begin(&router);
 
-  // WLAN-Hotspot + Weboberflaeche. Der Router MUSS vor begin() gesetzt sein,
-  // damit die Seite ueber /ws Befehle an die Module schickt und Live-Status
-  // empfaengt (Stufe 2b). Gibt die AP-IP im Serial-Monitor aus.
-  Net.setRouter(&router);
-  Net.begin();
+  // === TEMP TEST (WIEDER AKTIVIEREN): WLAN-Init ausgelassen, um zu pruefen, ob
+  // das Hochfahren des WLAN den NRF24-Traeger abwuergt (Spike jammt ab Boot). ===
+  // Net.setRouter(&router);
+  // Net.begin();
 
   Serial.println("[OrcaOne] Bereit. 'help' fuer Befehle.");
 }
@@ -92,8 +91,8 @@ void loop() {
   // Eingaben aus dem Serial Monitor verarbeiten (nicht blockierend).
   Console.update();
 
-  // Netzwerk-Dienst (Stufe 1a: noch ohne Aufgabe, Platzhalter fuer Stufe 2).
-  Net.update();
+  // === TEMP TEST: passend zum ausgelassenen Net.begin() oben deaktiviert. ===
+  // Net.update();
 
   // Drehgeber/Taste abfragen und an das Menue/Display weitergeben.
   InputEvent event = input.poll();
