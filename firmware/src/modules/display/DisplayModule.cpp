@@ -276,6 +276,7 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen s,
   static const MenuEntry irMenu[] = {
       {"Aufnehmen", KGoLive, S_IR_RECORD, "ir", "record"},
       {"Senden", KList, S_IR_SLOTS},
+      {"Ausschalten", KAction, S_IR_MENU, "ir", "shutoff"},
       {"Stop", KAction, S_IR_MENU, "ir", "stop"},
   };
   static const MenuEntry infoMenu[] = {
@@ -325,8 +326,11 @@ void DisplayModule::activateMenuEntry(const MenuEntry& e) {
     case KAction: {
       String err;
       const bool ok = dispatchNow(e.module, e.action, e.value, err);
-      showMessage(ok ? "Erledigt" : (err.length() ? err : "Abgelehnt"),
-                  ok ? 1200 : 2500);
+      const char* okMsg = "Erledigt";
+      if (String(e.action) == "shutoff") okMsg = "Ausschalt-Sequenz laeuft";
+      else if (String(e.action) == "stop") okMsg = "Gestoppt";
+      showMessage(ok ? okMsg : (err.length() ? err : "Abgelehnt"),
+                  ok ? 1500 : 2500);
       return;
     }
     case KGoLive: {
@@ -558,17 +562,18 @@ void DisplayModule::drawNfcRead() {
     char l2[28];
     snprintf(l2, sizeof(l2), "%s  %s", exp, type);
     u8g2_DrawStr(&_display, 2, 52, l2);
+  } else if (pending) {
+    // Liest noch aktiv -> solange Karte halten (mehrere Versuche bis Erfolg).
+    u8g2_DrawStr(&_display, 2, 30, "Lese Karte...");
+    u8g2_DrawStr(&_display, 2, 42, "Karte halten");
   } else if ((o["lastUid"] | "")[0] != '\0') {
-    // Karte erkannt, aber kein EMV-Dump (z. B. Mifare/Transportkarte).
+    // Lesen beendet, Karte war im Feld, aber kein EMV-Dump (z. B. Mifare).
     const char* uid = o["lastUid"] | "";
     u8g2_DrawStr(&_display, 2, 26, "Karte erkannt:");
     char l[28];
     snprintf(l, sizeof(l), "UID %s", uid);
     u8g2_DrawStr(&_display, 2, 40, l);
     u8g2_DrawStr(&_display, 2, 52, "(keine EMV-Daten)");
-  } else if (pending) {
-    u8g2_DrawStr(&_display, 2, 30, "Halte Karte an");
-    u8g2_DrawStr(&_display, 2, 42, "den Leser...");
   } else {
     u8g2_DrawStr(&_display, 2, 30, "Abgebrochen");
   }

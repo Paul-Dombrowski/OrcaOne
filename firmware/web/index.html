@@ -68,11 +68,18 @@
             <span class="micro-label">LETZTE UID</span>
             <strong id="nfc-uid" class="mono">—</strong>
           </div>
-          <div class="ir-detail">Kartentyp: <span id="nfc-card-type">—</span></div>
+          <div class="data-field">
+            <span class="micro-label">KARTENNUMMER</span>
+            <strong id="nfc-pan" class="mono">—</strong>
+          </div>
+          <div class="ir-detail">Typ: <span id="nfc-card-type">—</span> · Ablauf: <span id="nfc-expiry">—</span> · Inhaber: <span id="nfc-holder">—</span></div>
           <p class="module-note" id="nfc-note">Warte auf Gerätestatus.</p>
-          <button class="action-button" id="btn-nfc-read" type="button" disabled>
-            <span>Tag lesen</span><span class="button-arrow" aria-hidden="true">↗</span>
-          </button>
+          <div class="button-row">
+            <button class="action-button" id="btn-nfc-read" type="button" disabled>
+              <span>Tag lesen</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="stop-button" id="btn-nfc-stop" type="button" disabled>Lesen stoppen</button>
+          </div>
         </article>
 
         <article class="module-card ir-card" id="infrared" aria-labelledby="ir-title">
@@ -95,6 +102,18 @@
             </button>
             <button class="stop-button" id="btn-ir-stop" type="button" disabled>IR-Vorgang stoppen</button>
           </div>
+          <div class="send-area">
+            <div class="send-row">
+              <input class="slot-input" id="ir-slot-input" type="number" min="1" value="1" inputmode="numeric" aria-label="IR-Speicherplatz" disabled>
+              <button class="action-button" id="btn-ir-send" type="button" disabled>
+                <span>Slot senden</span><span class="button-arrow" aria-hidden="true">↗</span>
+              </button>
+            </div>
+            <button class="stop-button" id="btn-ir-send-newest" type="button" disabled>Neuesten senden</button>
+            <button class="action-button" id="btn-ir-shutoff" type="button" disabled>
+              <span>Ausschalt-Sequenz</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+          </div>
         </article>
 
         <article class="module-card radio-card" id="jammer" aria-labelledby="radio-title">
@@ -109,7 +128,12 @@
             <strong id="jammer-state">Noch kein Status</strong>
           </div>
           <p class="module-note" id="jammer-note">Warte auf Gerätestatus.</p>
-          <div class="unavailable-foot"><span aria-hidden="true">i</span> Keine Web-Steuerung verfügbar</div>
+          <div class="button-row">
+            <button class="action-button" id="btn-jammer-start" type="button" disabled>
+              <span>Störung starten</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="stop-button" id="btn-jammer-stop" type="button" disabled>Störung stoppen</button>
+          </div>
         </article>
 
         <article class="module-card system-card" id="system" aria-labelledby="system-title">
@@ -124,7 +148,12 @@
             <strong id="mode">Noch kein Status</strong>
           </div>
           <p class="card-description" id="system-note">Warte auf Gerätestatus.</p>
-          <div class="unavailable-foot"><span aria-hidden="true">i</span> Anzeige ohne Web-Umschaltung</div>
+          <div class="button-row">
+            <button class="action-button" id="btn-mode-on" type="button" disabled>
+              <span>No-Mercy AN</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="stop-button" id="btn-mode-off" type="button" disabled>No-Mercy AUS</button>
+          </div>
         </article>
       </div>
 

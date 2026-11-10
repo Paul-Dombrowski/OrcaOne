@@ -193,6 +193,24 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--mint); outline-
 .ir-detail { min-height: 18px; margin-top: 10px; color: var(--dim); font-size: 10px; }
 .ir-detail span { color: var(--muted); font-family: "DM Mono", monospace; }
 
+/* IR-Slot-Senden + generische Steuer-Fuesse (Jammer/No-Mercy) */
+.send-area { display: grid; gap: 8px; margin-top: 10px; }
+.send-row { display: flex; gap: 8px; align-items: stretch; }
+.send-row .action-button { flex: 1; }
+.slot-input {
+  width: 74px;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 1px solid rgba(165, 203, 195, .18);
+  border-radius: 7px;
+  background: rgba(4, 20, 24, .5);
+  color: var(--ink);
+  font: 600 13px "DM Mono", monospace;
+  text-align: center;
+}
+.slot-input:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.slot-input:disabled { opacity: .42; cursor: not-allowed; }
+
 .unavailable-card { background: linear-gradient(145deg, rgba(18, 38, 41, .8), rgba(9, 28, 33, .9)); }
 .unavailable-label { padding: 6px 8px; border: 1px solid rgba(227, 185, 112, .2); border-radius: 4px; color: var(--amber); font: 500 8px "DM Mono", monospace; letter-spacing: .1em; }
 .unavailable-card h3, .system-card h3 { margin-bottom: 8px; }

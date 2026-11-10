@@ -12,10 +12,14 @@
 
 #include <WiFi.h>
 #include <esp_http_server.h>
+#include <ArduinoJson.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
 
 #include <cstring>
 
 #include "../config.h"
+#include "../core/CommandRouter.h"
 
 // --- Eingebettete Web-Dateien (siehe main/CMakeLists.txt, EMBED_FILES) --------
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
@@ -26,6 +30,18 @@ extern const uint8_t app_js_start[]     asm("_binary_app_js_start");
 extern const uint8_t app_js_end[]       asm("_binary_app_js_end");
 
 namespace {
+
+// --- WebSocket-Befehlsqueue (HTTP-Task -> loop()-Task) ----------------------
+// Der HTTP-Server laeuft in einem EIGENEN FreeRTOS-Task. Wuerde man Befehle
+// direkt dort dispatchen, liefe das parallel zu loop()->update() der Module
+// (z. B. IR manipuliert std::vector) -> Race/Crash. Darum legt der WS-Handler
+// die rohe Nachricht nur in diese Queue; abgearbeitet (geparst + dispatcht)
+// wird sie in loop() (NetworkService::drainCommands), also single-threaded zu
+// den Modulen. Feste Puffergroesse -> kein Heap, Queue kopiert by-value.
+struct WsCommand {
+  char json[240];
+};
+QueueHandle_t gCommandQueue = nullptr;
 
 // Beschreibt eine auszuliefernde Datei: Zeiger, Laenge, MIME-Typ.
 struct EmbeddedAsset {
@@ -66,17 +82,30 @@ esp_err_t handleWebSocket(httpd_req_t* req) {
     return ESP_OK;
   }
 
-  // Eingehenden Frame annehmen und verwerfen (app.js sendet derzeit nichts,
-  // solange es keinen Status bekommt). Erst Laenge ermitteln, dann einlesen.
+  // Eingehenden Befehls-Frame einlesen. Erst Laenge ermitteln, dann Nutzdaten.
   httpd_ws_frame_t frame;
   memset(&frame, 0, sizeof(frame));
   frame.type = HTTPD_WS_TYPE_TEXT;
   if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK) return ESP_FAIL;
 
-  if (frame.len > 0 && frame.len < 512) {
-    uint8_t buffer[512];
+  if (frame.len > 0 && frame.len < sizeof(WsCommand::json)) {
+    uint8_t buffer[sizeof(WsCommand::json)];
     frame.payload = buffer;
-    httpd_ws_recv_frame(req, &frame, sizeof(buffer));
+    if (httpd_ws_recv_frame(req, &frame, sizeof(buffer)) == ESP_OK) {
+      Serial.printf("[net] /ws Frame empfangen (%u Bytes)\n", (unsigned)frame.len);
+      if (gCommandQueue != nullptr) {
+        // NICHT hier dispatchen (fremder Task) - nur in die Queue legen; loop()
+        // arbeitet sie ab. Bei voller Queue verwerfen (kein Blockieren im Handler).
+        WsCommand cmd;
+        memcpy(cmd.json, buffer, frame.len);
+        cmd.json[frame.len] = '\0';
+        if (xQueueSend(gCommandQueue, &cmd, 0) != pdTRUE) {
+          Serial.println("[net] /ws Befehl verworfen (Queue voll)");
+        }
+      } else {
+        Serial.println("[net] /ws Frame verworfen (keine Queue)");
+      }
+    }
   }
   return ESP_OK;
 }
@@ -86,7 +115,15 @@ esp_err_t handleWebSocket(httpd_req_t* req) {
 // Das eine, global erreichbare Objekt (Muster wie "Storage"/"Console").
 NetworkService Net;
 
-void NetworkService::begin() {
+void NetworkService::begin(CommandRouter* router) {
+  _router = router;
+
+  // Befehlsqueue fuer WS -> loop() (siehe WsCommand). Vor dem HTTP-Server, damit
+  // der Handler sie beim ersten Frame schon hat.
+  if (gCommandQueue == nullptr) {
+    gCommandQueue = xQueueCreate(8, sizeof(WsCommand));
+  }
+
   // Reiner Access-Point-Betrieb: der ESP32 macht ein eigenes WLAN auf und
   // verbindet sich NICHT mit einem vorhandenen Netz (kein Internet noetig,
   // wie vom Projektauftrag verlangt).
@@ -152,7 +189,76 @@ void NetworkService::startHttpServer() {
 }
 
 void NetworkService::update() {
-  // esp_http_server bedient Anfragen in eigenen Tasks - hier ist nichts zu tun.
-  // MUSS nicht-blockierend bleiben (kein delay(), keine langen Schleifen).
-  // Platzhalter fuer Stufe 2b (WebSocket /ws Status-Push).
+  // Laeuft im loop()-Task: erst eingegangene WS-Befehle abarbeiten, dann in
+  // festem Takt den Status an alle /ws-Clients senden. Beides nicht-blockierend.
+  drainCommands();
+
+  if (_httpServer != nullptr && _router != nullptr &&
+      millis() - _lastPush >= STATUS_PUSH_MS) {
+    _lastPush = millis();
+    pushStatus();
+  }
+}
+
+void NetworkService::drainCommands() {
+  if (gCommandQueue == nullptr || _router == nullptr) return;
+
+  WsCommand cmd;
+  while (xQueueReceive(gCommandQueue, &cmd, 0) == pdTRUE) {
+    JsonDocument doc;
+    if (deserializeJson(doc, cmd.json)) continue;  // kaputtes JSON -> ignorieren
+    const char* module = doc["module"] | "";
+    const char* action = doc["action"] | "";
+    if (module[0] == '\0' || action[0] == '\0') continue;
+
+    JsonObjectConst params = doc["params"].as<JsonObjectConst>();
+    String err;
+    Serial.printf("[net] /ws Befehl: %s.%s\n", module, action);
+    // Dispatch HIER (loop()-Task) -> Modulzugriffe single-threaded. Ergebnis geht
+    // nicht als Quittung zurueck; die Wirkung erscheint im naechsten Status-Push.
+    _router->dispatch(module, action, params, &err);
+    if (err.length() > 0) {
+      Serial.printf("[net] WS-Befehl %s.%s: %s\n", module, action, err.c_str());
+    }
+  }
+}
+
+void NetworkService::pushStatus() {
+  httpd_handle_t server = static_cast<httpd_handle_t>(_httpServer);
+
+  // Status im loop()-Kontext bauen (liest Modulzustand - safe, da gleicher Task
+  // wie update()). app.js erwartet {type:"status", mode, modules:{...}}.
+  JsonDocument doc;
+  JsonObject root = doc.to<JsonObject>();
+  root["type"] = "status";
+  _router->buildStatus(root);
+  String out;
+  serializeJson(doc, out);
+
+  // An alle verbundenen WebSocket-Clients senden. Kein eigenes fd-Tracking:
+  // httpd liefert die offenen Sockets, httpd_ws_get_fd_info filtert die WS.
+  int clientFds[8];
+  size_t count = sizeof(clientFds) / sizeof(clientFds[0]);
+  if (httpd_get_client_list(server, &count, clientFds) != ESP_OK) return;
+
+  int wsCount = 0;
+  for (size_t i = 0; i < count; ++i) {
+    const int fd = clientFds[i];
+    if (httpd_ws_get_fd_info(server, fd) != HTTPD_WS_CLIENT_WEBSOCKET) continue;
+    ++wsCount;
+    httpd_ws_frame_t frame;
+    memset(&frame, 0, sizeof(frame));
+    frame.type = HTTPD_WS_TYPE_TEXT;
+    frame.payload = reinterpret_cast<uint8_t*>(const_cast<char*>(out.c_str()));
+    frame.len = out.length();
+    httpd_ws_send_frame_async(server, fd, &frame);  // Fehler (Client weg) ignorieren
+  }
+
+  // Einmal melden, sobald tatsaechlich an WS-Clients gesendet wird (Diagnose:
+  // bestaetigt, dass der Status-Push die Browser erreicht).
+  static int lastWsCount = -1;
+  if (wsCount != lastWsCount) {
+    lastWsCount = wsCount;
+    Serial.printf("[net] Status-Push an %d WebSocket-Client(s)\n", wsCount);
+  }
 }

@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 
+class CommandRouter;
+
 // ============================================================================
 //  NetworkService - WLAN-Hotspot (Access Point) des OrcaOne
 // ----------------------------------------------------------------------------
@@ -28,13 +30,15 @@
 // ============================================================================
 class NetworkService {
 public:
-  // Einmalige Initialisierung in setup(). Spannt den Access Point auf und gibt
-  // die AP-IP im Serial-Monitor aus. Blockiert nicht und bricht nie ab (das
-  // WLAN ist on-chip, kann also nicht "fehlen" wie ein externes Bauteil).
-  void begin();
+  // Einmalige Initialisierung in setup(). Spannt den Access Point auf, startet
+  // den HTTP-Server und merkt sich den CommandRouter fuer WebSocket-Befehle und
+  // den Status-Push. Blockiert nicht und bricht nie ab (WLAN ist on-chip).
+  void begin(CommandRouter* router);
 
-  // Wird in jedem loop()-Durchlauf aufgerufen. MUSS nicht-blockierend sein.
-  // Stufe 1a: noch nichts zu tun (Platzhalter fuer den Webserver in Stufe 2).
+  // Wird in jedem loop()-Durchlauf aufgerufen (loop()-Task). Arbeitet eingegangene
+  // WebSocket-Befehle ab (Dispatch ueber den Router - bewusst HIER, nicht im
+  // HTTP-Task, damit Modulzugriffe single-threaded bleiben) und sendet in festem
+  // Takt den Status an alle verbundenen /ws-Clients. MUSS nicht-blockierend sein.
   void update();
 
   // Ist der Access Point aktiv? (fuer spaetere Status-Ausgabe / Stufe 2)
@@ -45,8 +49,14 @@ private:
   // Web-Dateien. Fehlschlag wird gemeldet, blockiert aber nicht (ARBEITSWEISE §6).
   void startHttpServer();
 
-  bool _ready = false;        // true, sobald softAP() erfolgreich war
+  // In loop() aufgerufen: eingegangene WS-Befehle abarbeiten bzw. Status senden.
+  void drainCommands();
+  void pushStatus();
+
+  bool _ready = false;         // true, sobald softAP() erfolgreich war
   void* _httpServer = nullptr; // httpd_handle_t (void*), nullptr = nicht gestartet
+  CommandRouter* _router = nullptr;  // fuer Befehls-Dispatch + buildStatus
+  unsigned long _lastPush = 0;       // millis-Takt fuer den Status-Push
 };
 
 // Global erreichbares Objekt (in genau einer .cpp definiert, hier nur bekannt

@@ -106,15 +106,15 @@ void NfcModule::update() {
     } else {
       Serial.println("[nfc] Speichern fehlgeschlagen.");
     }
-  } else if (_card.readSuccess) {
-    Serial.println("[nfc] Kartennummer fehlt - nicht gespeichert.");
+    // ERFOLG (Kartennummer gelesen) -> Lesen beenden. Nur hier stoppen!
+    _readPending = false;
   }
+  // SONST: Karte war zwar im Feld (UID erkannt), aber der EMV-Dump lieferte
+  // (noch) keine Kartennummer -> _readPending BLEIBT true, naechster update()
+  // versucht es erneut. So genuegt es, die Karte weiter zu halten, bis ein
+  // Versuch erfolgreich ist (Verhalten wie das fruehere Dauerlesen). Beendet
+  // wird der Lesebetrieb durch Erfolg oder 'nfc stop' (Menue-Zurueck/Web-Stop).
   // Der Fall "gar nicht gelesen" wird bereits in EmvReader::readCard gemeldet.
-
-  // Eine Karte wurde erfasst -> Lesen beenden. Weiteres Lesen erfordert einen
-  // neuen 'nfc read' (Menuepunkt "NFC lesen"). Verhindert Dauerlesen und haelt
-  // die Hauptschleife frei (sonst pollt readPassiveTargetID staendig blockierend).
-  _readPending = false;
 }
 
 String NfcModule::cardToJson() const {
@@ -252,6 +252,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
     _card.clear();        // frischer Lesevorgang: alte Anzeige nicht stehen lassen
     _readPending = true;
     _hasPolled = false;
+    Serial.println("[nfc] 'read' empfangen - Lesen aktiv, Karte an den PN532 halten.");
     return true;
   }
 

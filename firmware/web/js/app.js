@@ -72,10 +72,12 @@
       dom.nfcNote.textContent = nfc.emulating === true
         ? "Karten-Emulation ist laut Firmware aktiv."
         : nfc.readPending === true
-          ? "Lesevorgang angefordert. Halte den Tag an den PN532."
-          : nfc.lastUid
-            ? "Zuletzt erkannte UID · Tag lesen startet einen neuen Scan."
-            : "Der PN532 sucht fortlaufend nach NFC-Tags.";
+          ? "Lesevorgang läuft. Halte den Tag an den PN532 (liest eine Karte)."
+          : nfc.cardReadSuccess === true
+            ? "Karte gelesen · „Tag lesen“ startet einen neuen Scan."
+            : nfc.lastUid
+              ? "Tag erkannt (keine EMV-Daten) · „Tag lesen“ startet neu."
+              : "Bereit · „Tag lesen“ startet einen Scan (kein Dauerlesen).";
     }
 
     if (!statusReceived || !ir || typeof ir.ok !== "boolean") {
@@ -136,16 +138,46 @@
       setModuleIndicator("jammer-ready", active ? "not-ready" : "ready", active ? "Aktiv" : "Bereit");
       dom.jammerState.textContent = active ? "Aktiv" : "Bereit";
       dom.jammerNote.textContent = active
-        ? `Firmware meldet den Betrieb auf Kanal ${Number.isInteger(jammer.channel) ? jammer.channel : "—"}.`
-        : "NRF24 erkannt. Die Weboberfläche zeigt den Status, bietet aber keine Aktivierungssteuerung.";
+        ? `Störung aktiv auf Kanal ${Number.isInteger(jammer.channel) ? jammer.channel : "—"}. „Störung stoppen“ beendet den Dauerträger.`
+        : "NRF24 bereit. „Störung starten“ sendet einen Dauerträger (hoher Strombedarf; kann die Versorgung belasten).";
     }
 
-    dom.nfcRead.disabled = !connected || !statusReceived || !nfcReady;
-    dom.irRecord.disabled = !connected || !statusReceived || !irReady || irState === "recording";
-    dom.irStop.disabled = !connected || !statusReceived || !irReady || irState === "idle";
+    // NFC-Kartendaten (nur bei erfolgreichem EMV-Dump).
+    const nfcSuccess = !!(nfc && nfc.cardReadSuccess === true);
+    dom.nfcPan.textContent = nfcSuccess ? groupPan(nfc.lastCardNumber) : "—";
+    dom.nfcExpiry.textContent = nfcSuccess && nfc.lastExpiry ? nfc.lastExpiry : "—";
+    dom.nfcHolder.textContent = nfcSuccess && nfc.lastCardholder ? nfc.lastCardholder : "—";
+
+    const base = !connected || !statusReceived;
+    const slots = ir && Number.isInteger(ir.slots) ? ir.slots : 0;
+    const irIdle = irState === "idle";
+    const jammerOk = !!(jammer && jammer.ok === true);
+    const jammerActive = !!(jammer && jammer.active === true);
+
+    dom.nfcRead.disabled = base || !nfcReady;
+    dom.nfcStop.disabled = base || !nfcReady || !(nfc && nfc.readPending === true);
+    dom.irRecord.disabled = base || !irReady || irState === "recording";
+    dom.irStop.disabled = base || !irReady || irIdle;
+
+    // Senden nur im Ruhezustand und wenn mindestens ein Slot belegt ist.
+    dom.irSend.disabled = base || !irReady || slots < 1 || !irIdle;
+    dom.irSendNewest.disabled = base || !irReady || slots < 1 || !irIdle;
+    dom.irSlotInput.disabled = base || !irReady || slots < 1;
+    if (slots >= 1) dom.irSlotInput.max = String(slots);
+    // Ausschalt-Sequenz nur, wenn eine Liste gespeichert ist (hasShutoff) und Ruhe.
+    dom.irShutoff.disabled = base || !irReady || !irIdle || !(ir && ir.hasShutoff === true);
+
+    // Jammer: Start nur wenn bereit und aus, Stop nur wenn an.
+    dom.jammerStart.disabled = base || !jammerOk || jammerActive;
+    dom.jammerStop.disabled = base || !jammerOk || !jammerActive;
   }
 
   function renderMode() {
+    // No-Mercy ist kein Status-Modul -> schaltbar, sobald verbunden.
+    const canMode = connected && statusReceived;
+    dom.modeOn.disabled = !canMode;
+    dom.modeOff.disabled = !canMode;
+
     if (!statusReceived) {
       dom.mode.textContent = "Noch kein Status";
       setModuleIndicator("system-ready", "", "Warte auf Status");
@@ -156,11 +188,11 @@
     if (mode === "no-mercy" || mode === "nomercy" || mode === "auto") {
       dom.mode.textContent = "No-Mercy aktiv";
       setModuleIndicator("system-ready", "not-ready", "Aktiv");
-      dom.systemNote.textContent = "Der Firmware-Modus schaltet Jammer und IR-Ausschaltsequenz. Eine Umschaltung über die Weboberfläche ist nicht verfügbar.";
+      dom.systemNote.textContent = "No-Mercy schaltet Jammer + IR-Ausschaltsequenz. „No-Mercy AUS“ beendet beides.";
     } else if (mode === "manual" || mode === "off") {
       dom.mode.textContent = "Manuell";
       setModuleIndicator("system-ready", "ready", "Bereit");
-      dom.systemNote.textContent = "Manueller Betrieb. Der No-Mercy-Modus kann über die Firmware-Bedienelemente geschaltet werden.";
+      dom.systemNote.textContent = "Manueller Betrieb. „No-Mercy AN“ startet Jammer + IR-Ausschaltsequenz (hoher Strombedarf).";
     } else {
       dom.mode.textContent = "Nicht gemeldet";
       setModuleIndicator("system-ready", "not-ready", "Unbekannt");
@@ -181,23 +213,29 @@
     showMessage(message);
   }
 
-  function sendCommand(module, action, params) {
-    if (!connected || !statusReceived || !moduleReady(module) || !socket || socket.readyState !== WebSocket.OPEN) {
+  function canSend(module) {
+    if (!connected || !statusReceived || !socket || socket.readyState !== WebSocket.OPEN) return false;
+    // "system" ist kein Modul im Status (es ist der Geraetemodus) -> sobald
+    // verbunden sendbar. Alle anderen muessen laut Status bereit sein.
+    return module === "system" ? true : moduleReady(module);
+  }
+
+  function sendCommand(module, action, params, label) {
+    if (!canSend(module)) {
       showMessage("Aktion nicht gesendet: Verbindung oder Modulstatus ist nicht verfügbar.");
       return;
     }
-
     try {
       socket.send(JSON.stringify({ module, action, params: params || {} }));
-      const actionLabel = action === "read"
-        ? "NFC-Leseanfrage gesendet."
-        : action === "record"
-          ? "IR-Aufnahme angefordert."
-          : "Stopp-Anfrage gesendet.";
-      showMessage(`${actionLabel} Es gibt laut Protokoll keine Befehlsquittung; der Modulstatus wird per Statusmeldung aktualisiert.`);
+      showMessage(`${label || "Befehl gesendet."} Keine Befehlsquittung laut Protokoll; der Modulstatus wird per Statusmeldung aktualisiert.`);
     } catch (error) {
       showMessage("Der Befehl konnte nicht gesendet werden. Verbindung prüfen und erneut versuchen.");
     }
+  }
+
+  function groupPan(pan) {
+    if (!pan) return "—";
+    return String(pan).replace(/(.{4})/g, "$1 ").trim();
   }
 
   function updateStatus(status) {
@@ -289,6 +327,9 @@
     dom.statusTime = byId("status-time");
     dom.linkMode = byId("link-mode");
     dom.nfcUid = byId("nfc-uid");
+    dom.nfcPan = byId("nfc-pan");
+    dom.nfcExpiry = byId("nfc-expiry");
+    dom.nfcHolder = byId("nfc-holder");
     dom.nfcCardType = byId("nfc-card-type");
     dom.nfcNote = byId("nfc-note");
     dom.irState = byId("ir-state");
@@ -301,12 +342,36 @@
     dom.mode = byId("mode");
     dom.message = byId("app-message");
     dom.nfcRead = byId("btn-nfc-read");
+    dom.nfcStop = byId("btn-nfc-stop");
     dom.irRecord = byId("btn-ir-record");
     dom.irStop = byId("btn-ir-stop");
+    dom.irSend = byId("btn-ir-send");
+    dom.irSendNewest = byId("btn-ir-send-newest");
+    dom.irShutoff = byId("btn-ir-shutoff");
+    dom.irSlotInput = byId("ir-slot-input");
+    dom.jammerStart = byId("btn-jammer-start");
+    dom.jammerStop = byId("btn-jammer-stop");
+    dom.modeOn = byId("btn-mode-on");
+    dom.modeOff = byId("btn-mode-off");
 
-    dom.nfcRead.addEventListener("click", () => sendCommand("nfc", "read"));
-    dom.irRecord.addEventListener("click", () => sendCommand("ir", "record"));
-    dom.irStop.addEventListener("click", () => sendCommand("ir", "stop"));
+    dom.nfcRead.addEventListener("click", () => sendCommand("nfc", "read", {}, "NFC-Leseanfrage gesendet."));
+    dom.nfcStop.addEventListener("click", () => sendCommand("nfc", "stop", {}, "NFC-Lesen gestoppt."));
+    dom.irRecord.addEventListener("click", () => sendCommand("ir", "record", {}, "IR-Aufnahme angefordert."));
+    dom.irStop.addEventListener("click", () => sendCommand("ir", "stop", {}, "IR-Stopp gesendet."));
+    dom.irSend.addEventListener("click", () => {
+      const slot = parseInt(dom.irSlotInput.value, 10);
+      if (!Number.isInteger(slot) || slot < 1) {
+        showMessage("Bitte einen gültigen Speicherplatz (≥ 1) wählen.");
+        return;
+      }
+      sendCommand("ir", "send", { slot }, `IR-Slot ${slot} senden angefordert.`);
+    });
+    dom.irSendNewest.addEventListener("click", () => sendCommand("ir", "send", {}, "IR: neuesten Slot senden angefordert."));
+    dom.irShutoff.addEventListener("click", () => sendCommand("ir", "shutoff", {}, "IR-Ausschalt-Sequenz gestartet."));
+    dom.jammerStart.addEventListener("click", () => sendCommand("jammer", "start", {}, "2,4-GHz-Störung gestartet."));
+    dom.jammerStop.addEventListener("click", () => sendCommand("jammer", "stop", {}, "2,4-GHz-Störung gestoppt."));
+    dom.modeOn.addEventListener("click", () => sendCommand("system", "setMode", { mode: "nomercy" }, "No-Mercy AN angefordert."));
+    dom.modeOff.addEventListener("click", () => sendCommand("system", "setMode", { mode: "off" }, "No-Mercy AUS angefordert."));
 
     preview = localPreviewLocation();
     connect();
