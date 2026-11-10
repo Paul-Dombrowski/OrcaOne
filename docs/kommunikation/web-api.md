@@ -74,10 +74,12 @@ Die Weboberfläche sendet bei Nutzeraktionen ein Befehls-JSON:
 > jeweiligen Modul in `handleCommand()` umsetzen — sonst kennen sich beide Seiten
 > nicht.
 
-Die aktuelle Weboberfläche sendet nur `nfc/read`, `ir/record` und `ir/stop`.
-Sie bietet weder NFC-Emulation noch IR-Senden, Jammer-Steuerung oder
-Modusumschaltung an. Der Firmware-Access-Point startet bereits; HTTP-Auslieferung
-der Webdateien und WebSocket-Server sind noch nicht integriert.
+Die Weboberfläche bietet inzwischen **alle** Befehle aus der Tabelle an: NFC
+(`read`/`emulate`/`stop`/`clear`), IR (`record`/`send`/`shutoff`/`stop`),
+Jammer (`start`/`stop`) und `system/setMode` (No-Mercy an/aus). HTTP-Auslieferung
+der Webdateien, Status-Push alle ~500 ms und Befehlsempfang über `/ws` sind in
+`firmware/src/network/NetworkService.cpp` umgesetzt; Befehle laufen über denselben
+`CommandRouter` wie Serial-Konsole und Gerätemenü.
 
 ---
 

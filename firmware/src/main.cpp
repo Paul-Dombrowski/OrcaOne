@@ -76,8 +76,10 @@ void setup() {
   display.setCommandRouter(&router);
   Console.begin(&router);
 
-  // WLAN-Hotspot aufspannen (Stufe 1a: nur Verbinden moeglich, noch keine
-  // Weboberflaeche). Gibt die AP-IP im Serial-Monitor aus.
+  // WLAN-Hotspot + Weboberflaeche. Der Router MUSS vor begin() gesetzt sein,
+  // damit die Seite ueber /ws Befehle an die Module schickt und Live-Status
+  // empfaengt (Stufe 2b). Gibt die AP-IP im Serial-Monitor aus.
+  Net.setRouter(&router);
   Net.begin();
 
   Serial.println("[OrcaOne] Bereit. 'help' fuer Befehle.");

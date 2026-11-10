@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 
+class CommandRouter;
+
 // ============================================================================
 //  NetworkService - WLAN-Hotspot (Access Point) des OrcaOne
 // ----------------------------------------------------------------------------
@@ -33,8 +35,14 @@ public:
   // WLAN ist on-chip, kann also nicht "fehlen" wie ein externes Bauteil).
   void begin();
 
+  // Den CommandRouter anmelden. MUSS vor begin() gesetzt werden, damit der
+  // WebSocket-Handler Befehle vom Handy an die Module weiterreichen und den
+  // Gesamtstatus bauen kann (Stufe 2b). Ohne Router laeuft nur der Handshake.
+  void setRouter(CommandRouter* router) { _router = router; }
+
   // Wird in jedem loop()-Durchlauf aufgerufen. MUSS nicht-blockierend sein.
-  // Stufe 1a: noch nichts zu tun (Platzhalter fuer den Webserver in Stufe 2).
+  // Stufe 2b: schiebt etwa alle 500 ms den Live-Status an alle verbundenen
+  // WebSocket-Clients (Handy), ohne zu blockieren.
   void update();
 
   // Ist der Access Point aktiv? (fuer spaetere Status-Ausgabe / Stufe 2)
@@ -47,6 +55,8 @@ private:
 
   bool _ready = false;        // true, sobald softAP() erfolgreich war
   void* _httpServer = nullptr; // httpd_handle_t (void*), nullptr = nicht gestartet
+  CommandRouter* _router = nullptr;  // fuer Status-Push + Befehle ueber /ws
+  unsigned long _lastPush = 0;       // Zeitpunkt des letzten Status-Pushs
 };
 
 // Global erreichbares Objekt (in genau einer .cpp definiert, hier nur bekannt

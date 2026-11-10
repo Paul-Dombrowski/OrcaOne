@@ -45,6 +45,16 @@ void JammerModule::begin() {
 
   _ok = true;
   Serial.println("[jammer] NRF24 bereit");
+
+  // === TEMP DIAGNOSE H6 (Register-Abgleich, WIEDER ENTFERNEN) ================
+  // NRF24-Register direkt nach der Konfiguration ausgeben. 1:1 vergleichbar mit
+  // radio.printPrettyDetails() aus dem FUNKTIONIERENDEN Standalone-Sketch.
+  // Erwartung bei korrektem Betrieb: PA Power = PA_MAX, Data Rate = 2 MBPS,
+  // und der Chip als "nRF24L01+" (P-Variante) erkannt.
+  Serial.println("[jammer][DIAG] --- printPrettyDetails nach Konfiguration ---");
+  _radio.printPrettyDetails();
+  Serial.println("[jammer][DIAG] --------------------------------------------");
+  // ===========================================================================
 }
 
 void JammerModule::update() {
@@ -58,6 +68,15 @@ void JammerModule::sweepTask(void* arg) {
   // Traeger EINMAL anschalten, danach nur noch den Kanal umstimmen (wie im
   // erprobten Standalone). NICHT pro Kanal neu starten.
   self->_radio.startConstCarrier(JAM_PA_LEVEL, self->_channel);
+
+  // === TEMP DIAGNOSE H6 (Register-Abgleich, WIEDER ENTFERNEN) ================
+  // Registerzustand WAEHREND des Dauertraegers ausgeben. Nur hier sind die
+  // Const-Carrier-Bits im RF_SETUP gesetzt (CONT_WAVE + PLL_LOCK) - das ist der
+  // Zustand, der ueber die tatsaechliche Sendeleistung entscheidet.
+  Serial.println("[jammer][DIAG] --- printPrettyDetails bei aktivem Traeger ---");
+  self->_radio.printPrettyDetails();
+  Serial.println("[jammer][DIAG] ---------------------------------------------");
+  // ===========================================================================
 
   uint32_t lastYield = millis();
   while (self->_running) {

@@ -105,6 +105,28 @@ void DisplayModule::update() {
     return;
   }
 
+  // Live-Status der Module: alle 500 ms neu aus dem Router ziehen, damit die
+  // Anzeige den echten Zustand widerspiegelt (NFC-UID, IR-Status, Jammer ...).
+  if (_screen == S_STATUS) {
+    if (_needsRedraw || millis() - _lastFrame >= 500) {
+      _needsRedraw = false;
+      _lastFrame = millis();
+      drawStatus();
+    }
+    return;
+  }
+
+  // Ergebnis-Bild nach einer Menue-Aktion: bleibt stehen bis zum Tastendruck,
+  // aktualisiert aber den Live-Status (z. B. bis die NFC-UID erscheint).
+  if (_screen == S_ACTION_RESULT) {
+    if (_needsRedraw || millis() - _lastFrame >= 500) {
+      _needsRedraw = false;
+      _lastFrame = millis();
+      drawActionResult();
+    }
+    return;
+  }
+
   if (_screen == S_MESSAGE) {
     if (_needsRedraw) {
       _needsRedraw = false;
@@ -112,16 +134,6 @@ void DisplayModule::update() {
     }
     if (static_cast<long>(millis() - _messageUntil) >= 0) {
       startScreen(_returnTo);
-    }
-    return;
-  }
-
-  if (_screen == S_LADEN) {
-    if (millis() - _lastFrame < kFrameMs) return;
-    _lastFrame = millis();
-    drawLoad();
-    if (_hasPendingAction && millis() - _loadStart >= 1200) {
-      dispatchPendingAction();
     }
     return;
   }
@@ -177,7 +189,8 @@ void DisplayModule::handleInput(InputEvent event) {
   }
 
   if (_screen == S_MESSAGE || _screen == S_PLATZHALTER ||
-      _screen == S_INFO_WIFI || _screen == S_INFO_DEVICES) {
+      _screen == S_INFO_WIFI || _screen == S_INFO_DEVICES ||
+      _screen == S_STATUS || _screen == S_ACTION_RESULT) {
     if (event == InputEvent::LongPress || event == InputEvent::Click) {
       startScreen(_returnTo);
     }
@@ -369,15 +382,21 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
   };
   static const MenuEntry nfcMenu[] = {
       {"Lesen", S_NFC_MENU, "nfc", "read"},
+      {"Emulieren", S_NFC_MENU, "nfc", "emulate"},
+      {"Stop", S_NFC_MENU, "nfc", "stop"},
+      {"Loeschen", S_NFC_MENU, "nfc", "clear"},
       {"Zurueck", S_MENU},
   };
   static const MenuEntry irMenu[] = {
       {"Aufnehmen", S_IR_MENU, "ir", "record"},
+      {"Senden (neuester)", S_IR_MENU, "ir", "send"},
+      {"Ausschalten (Shutoff)", S_IR_MENU, "ir", "shutoff"},
       {"Stop", S_IR_MENU, "ir", "stop"},
       {"Zurueck", S_MENU},
   };
   static const MenuEntry jammerMenu[] = {
-      {"Modul nicht verfuegbar", S_PLATZHALTER},
+      {"Stoerung START", S_JAMMER_MENU, "jammer", "start"},
+      {"Stoerung STOP", S_JAMMER_MENU, "jammer", "stop"},
       {"Zurueck", S_MENU},
   };
   static const MenuEntry modeMenu[] = {
@@ -386,6 +405,7 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
       {"Zurueck", S_MENU},
   };
   static const MenuEntry infoMenu[] = {
+      {"Modul-Status", S_STATUS},
       {"WLAN / IP-Adresse", S_INFO_WIFI},
       {"Verbundene Geraete", S_INFO_DEVICES},
       {"Zurueck", S_MENU},
@@ -416,23 +436,33 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen screen,
 }
 
 void DisplayModule::activateMenuEntry(const MenuEntry& entry) {
+  // Navigations-Eintrag (kein Modul-Befehl): nur Bildschirm wechseln.
   if (entry.module == nullptr || entry.action == nullptr) {
-    if (entry.target == S_INFO_WIFI || entry.target == S_INFO_DEVICES) {
+    if (entry.target == S_INFO_WIFI || entry.target == S_INFO_DEVICES ||
+        entry.target == S_STATUS) {
       _returnTo = _screen;
     }
     startScreen(entry.target);
     return;
   }
 
+  // Aktions-Eintrag: Befehl SOFORT ausfuehren (keine Lade-Animation mehr) und
+  // das Ergebnis als Meldung zeigen. So ist das Display direkt mit den Modulen
+  // verknuepft, statt nur eine Animation abzuspielen.
   _returnTo = _screen;
-  _pendingAction = entry;
-  _hasPendingAction = true;
-  startScreen(S_LADEN);
+  dispatchAction(entry);
 }
 
-void DisplayModule::dispatchPendingAction() {
-  const MenuEntry entry = _pendingAction;
-  _hasPendingAction = false;
+void DisplayModule::dispatchAction(const MenuEntry& entry) {
+  // Befehl im seriellen Monitor anzeigen - genau das, was eine Eingabe in der
+  // Serial-Konsole waere. So sieht man am PC, welchen Befehl das Menue absetzt.
+  if (entry.slot > 0) {
+    Serial.printf("[menu] > %s %s %d\n", entry.module, entry.action, entry.slot);
+  } else if (entry.value != nullptr) {
+    Serial.printf("[menu] > %s %s %s\n", entry.module, entry.action, entry.value);
+  } else {
+    Serial.printf("[menu] > %s %s\n", entry.module, entry.action);
+  }
 
   bool accepted = false;
   String errorMessage;
@@ -449,15 +479,32 @@ void DisplayModule::dispatchPendingAction() {
   }
 
   if (accepted && entry.module != nullptr && entry.action != nullptr) {
-    if (strcmp(entry.module, "nfc") == 0 &&
-        strcmp(entry.action, "read") == 0) {
+    const char* m = entry.module;
+    const char* a = entry.action;
+    if (strcmp(m, "nfc") == 0 && strcmp(a, "read") == 0) {
       _message = "NFC-Suche gestartet";
-    } else if (strcmp(entry.module, "ir") == 0 &&
-               strcmp(entry.action, "record") == 0) {
-      _message = "IR-Aufnahme gestartet; Sensor nicht pruefbar";
-    } else if (strcmp(entry.module, "ir") == 0 &&
-               strcmp(entry.action, "stop") == 0) {
+    } else if (strcmp(m, "nfc") == 0 && strcmp(a, "emulate") == 0) {
+      _message = "NFC-Emulation aktiv";
+    } else if (strcmp(m, "nfc") == 0 && strcmp(a, "stop") == 0) {
+      _message = "NFC gestoppt";
+    } else if (strcmp(m, "nfc") == 0 && strcmp(a, "clear") == 0) {
+      _message = "NFC-Speicher geloescht";
+    } else if (strcmp(m, "ir") == 0 && strcmp(a, "record") == 0) {
+      _message = "IR-Aufnahme laeuft; dann Stop";
+    } else if (strcmp(m, "ir") == 0 && strcmp(a, "send") == 0) {
+      _message = "IR sendet neuesten Slot";
+    } else if (strcmp(m, "ir") == 0 && strcmp(a, "shutoff") == 0) {
+      _message = "IR-Ausschaltsequenz laeuft";
+    } else if (strcmp(m, "ir") == 0 && strcmp(a, "stop") == 0) {
       _message = "IR gestoppt";
+    } else if (strcmp(m, "jammer") == 0 && strcmp(a, "start") == 0) {
+      _message = "Stoerung aktiviert";
+    } else if (strcmp(m, "jammer") == 0 && strcmp(a, "stop") == 0) {
+      _message = "Stoerung deaktiviert";
+    } else if (strcmp(m, "system") == 0 && strcmp(a, "setMode") == 0) {
+      _message = (entry.value != nullptr && strcmp(entry.value, "nomercy") == 0)
+                     ? "No-Mercy EIN"
+                     : "No-Mercy AUS";
     } else {
       _message = "Aktion ausgefuehrt";
     }
@@ -465,11 +512,15 @@ void DisplayModule::dispatchPendingAction() {
     _message = errorMessage.length() > 0 ? errorMessage : "Aktion abgelehnt";
   }
   if (!accepted) {
-    Serial.printf("[display] %s.%s wurde abgelehnt.\n", entry.module,
+    Serial.printf("[menu] %s.%s wurde abgelehnt.\n", entry.module,
                   entry.action);
   }
-  _messageUntil = millis() + (accepted ? 1800 : 3000);
-  startScreen(S_MESSAGE);
+
+  // Persistentes Ergebnis-Bild: bleibt stehen (KEIN Auto-Zuruecksprung) und
+  // zeigt die Bestaetigung plus den Live-Status des Moduls. Erst eine Taste
+  // bringt zurueck ins Menue (Wunsch: selbst entscheiden, wann zurueck).
+  _actionModule = entry.module;
+  startScreen(S_ACTION_RESULT);
 }
 
 void DisplayModule::drawMenu() {
@@ -517,6 +568,138 @@ void DisplayModule::drawInfoPage() {
     u8g2_DrawStr(&_display, 2, 34, "Netzwerk folgt");
   }
   u8g2_DrawStr(&_display, 2, 54, "Taste = zurueck");
+  u8g2_SendBuffer(&_display);
+}
+
+void DisplayModule::drawStatus() {
+  u8g2_ClearBuffer(&_display);
+  u8g2_SetFont(&_display, u8g2_font_5x8_tr);
+
+  if (_router == nullptr) {
+    u8g2_DrawStr(&_display, 2, 12, "Kein Router");
+    u8g2_DrawStr(&_display, 2, 61, "Taste = zurueck");
+    u8g2_SendBuffer(&_display);
+    return;
+  }
+
+  JsonDocument doc;
+  JsonObject root = doc.to<JsonObject>();
+  _router->buildStatus(root);
+  JsonObject mods = root["modules"];
+
+  char line[26];
+  const char* mode = root["mode"] | "manual";
+  snprintf(line, sizeof(line), "Modus: %s", mode);
+  u8g2_DrawStr(&_display, 2, 9, line);
+
+  JsonObject nfc = mods["nfc"];
+  const bool nfcOk = nfc["ok"] | false;
+  const char* cardNumber = nfc["lastCardNumber"] | "";
+  if (nfc["emulating"] | false) {
+    snprintf(line, sizeof(line), "NFC: Emulation");
+  } else if (cardNumber[0] != '\0') {
+    snprintf(line, sizeof(line), "NFC: %s", cardNumber);
+  } else {
+    snprintf(line, sizeof(line), "NFC: %s", nfcOk ? "bereit" : "inaktiv");
+  }
+  u8g2_DrawStr(&_display, 2, 21, line);
+
+  JsonObject ir = mods["ir"];
+  const char* irState = ir["state"] | "idle";
+  const int slots = ir["slots"] | 0;
+  snprintf(line, sizeof(line), "IR: %s (Slots %d)", irState, slots);
+  u8g2_DrawStr(&_display, 2, 33, line);
+
+  JsonObject jam = mods["jammer"];
+  const bool jamOk = jam["ok"] | false;
+  const char* jamMode = jam["mode"] | "";
+  snprintf(line, sizeof(line), "Jammer: %s",
+           !jamOk ? "inaktiv" : (jamMode[0] ? jamMode : "idle"));
+  u8g2_DrawStr(&_display, 2, 45, line);
+
+  u8g2_DrawStr(&_display, 2, 61, "Taste = zurueck");
+  u8g2_SendBuffer(&_display);
+}
+
+void DisplayModule::moduleStatusLines(const char* module, char lines[][26],
+                                      int& lineCount) {
+  lineCount = 0;
+  if (_router == nullptr || module == nullptr) return;
+
+  JsonDocument doc;
+  JsonObject root = doc.to<JsonObject>();
+  _router->buildStatus(root);
+  JsonObject mods = root["modules"];
+  JsonObject m = mods[module];
+
+  if (strcmp(module, "nfc") == 0) {
+    if (!(m["ok"] | false)) {
+      snprintf(lines[lineCount++], 26, "Status: inaktiv");
+      return;
+    }
+    if (m["emulating"] | false) {
+      snprintf(lines[lineCount++], 26, "Status: Emulation");
+    } else if (m["readPending"] | false) {
+      snprintf(lines[lineCount++], 26, "Status: suche Karte...");
+    } else {
+      snprintf(lines[lineCount++], 26, "Status: bereit");
+    }
+    const char* pan = m["lastCardNumber"] | "";
+    if (pan[0]) {
+      snprintf(lines[lineCount++], 26, "Kartennr: %s", pan);
+    } else {
+      snprintf(lines[lineCount++], 26, "Kartennr: ---");
+    }
+    const char* exp = m["lastExpiry"] | "";
+    if (exp[0]) snprintf(lines[lineCount++], 26, "Gueltig: %s", exp);
+  } else if (strcmp(module, "ir") == 0) {
+    snprintf(lines[lineCount++], 26, "Status: %s",
+             (const char*)(m["state"] | "idle"));
+    snprintf(lines[lineCount++], 26, "Slots: %d  neu: %d",
+             (int)(m["slots"] | 0), (int)(m["newest"] | 0));
+  } else if (strcmp(module, "jammer") == 0) {
+    if (!(m["ok"] | false)) {
+      snprintf(lines[lineCount++], 26, "Status: inaktiv");
+    } else {
+      snprintf(lines[lineCount++], 26, "Status: %s",
+               (const char*)(m["mode"] | "idle"));
+    }
+  } else if (strcmp(module, "system") == 0) {
+    snprintf(lines[lineCount++], 26, "Modus: %s",
+             (const char*)(root["mode"] | "manual"));
+  }
+}
+
+void DisplayModule::drawActionResult() {
+  u8g2_ClearBuffer(&_display);
+  u8g2_SetFont(&_display, u8g2_font_5x8_tr);
+
+  // Kopf: Bestaetigungs-/Fehlermeldung (bis zu 2 Zeilen).
+  int y = 9;
+  String remaining = _message;
+  for (int line = 0; line < 2 && remaining.length() > 0; ++line) {
+    int splitAt = remaining.length() > 25 ? remaining.lastIndexOf(' ', 25) : -1;
+    if (splitAt <= 0) splitAt = min(static_cast<int>(remaining.length()), 25);
+    const String text = remaining.substring(0, splitAt);
+    u8g2_DrawStr(&_display, 2, y, text.c_str());
+    y += 10;
+    remaining.remove(0, splitAt);
+    while (remaining.startsWith(" ")) remaining.remove(0, 1);
+  }
+
+  u8g2_DrawHLine(&_display, 0, y - 2, 128);
+  y += 2;
+
+  // Live-Status des Moduls, zu dem die Aktion gehoerte.
+  char lines[5][26];
+  int n = 0;
+  moduleStatusLines(_actionModule, lines, n);
+  for (int i = 0; i < n && y <= 52; ++i) {
+    u8g2_DrawStr(&_display, 2, y, lines[i]);
+    y += 9;
+  }
+
+  u8g2_DrawStr(&_display, 2, 62, "Taste = zurueck");
   u8g2_SendBuffer(&_display);
 }
 
@@ -674,6 +857,8 @@ const char* DisplayModule::screenName() const {
     case S_INFO_MENU: return "info-menu";
     case S_INFO_WIFI: return "info-wifi";
     case S_INFO_DEVICES: return "info-devices";
+    case S_STATUS: return "status";
+    case S_ACTION_RESULT: return "action-result";
     case S_MESSAGE: return "message";
     case S_SCHWIMMEN: return "swim";
     case S_SPRINGEN: return "jump";

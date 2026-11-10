@@ -63,16 +63,25 @@
           </div>
           <p class="eyebrow">SENSOR · 13.56 MHz</p>
           <h3 id="nfc-title">NFC / RFID</h3>
-          <p class="card-description">Lies einen Tag mit dem PN532 aus und sieh die zuletzt erkannte UID.</p>
+          <p class="card-description">Lies eine Karte mit dem PN532 aus und sieh die zuletzt erkannte Kartennummer.</p>
           <div class="data-field">
-            <span class="micro-label">LETZTE UID</span>
-            <strong id="nfc-uid" class="mono">—</strong>
+            <span class="micro-label">KARTENNUMMER</span>
+            <strong id="nfc-number" class="mono">—</strong>
           </div>
           <div class="ir-detail">Kartentyp: <span id="nfc-card-type">—</span></div>
           <p class="module-note" id="nfc-note">Warte auf Gerätestatus.</p>
-          <button class="action-button" id="btn-nfc-read" type="button" disabled>
-            <span>Tag lesen</span><span class="button-arrow" aria-hidden="true">↗</span>
-          </button>
+          <div class="button-row">
+            <button class="action-button" id="btn-nfc-read" type="button" disabled>
+              <span>Tag lesen</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="action-button" id="btn-nfc-emulate" type="button" disabled>
+              <span>Emulieren</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <div class="button-row">
+            <button class="stop-button" id="btn-nfc-stop" type="button" disabled>Stopp</button>
+            <button class="stop-button" id="btn-nfc-clear" type="button" disabled>Speicher löschen</button>
+          </div>
         </article>
 
         <article class="module-card ir-card" id="infrared" aria-labelledby="ir-title">
@@ -93,6 +102,14 @@
             <button class="action-button" id="btn-ir-record" type="button" disabled>
               <span>Aufnahme starten</span><span class="button-arrow" aria-hidden="true">↗</span>
             </button>
+            <button class="action-button" id="btn-ir-send" type="button" disabled>
+              <span>Neuesten Slot senden</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <div class="button-row">
+            <button class="action-button" id="btn-ir-shutoff" type="button" disabled>
+              <span>Ausschalten (Shutoff)</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
             <button class="stop-button" id="btn-ir-stop" type="button" disabled>IR-Vorgang stoppen</button>
           </div>
         </article>
@@ -109,7 +126,12 @@
             <strong id="jammer-state">Noch kein Status</strong>
           </div>
           <p class="module-note" id="jammer-note">Warte auf Gerätestatus.</p>
-          <div class="unavailable-foot"><span aria-hidden="true">i</span> Keine Web-Steuerung verfügbar</div>
+          <div class="button-row">
+            <button class="action-button" id="btn-jammer-start" type="button" disabled>
+              <span>Störung starten</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="stop-button" id="btn-jammer-stop" type="button" disabled>Störung stoppen</button>
+          </div>
         </article>
 
         <article class="module-card system-card" id="system" aria-labelledby="system-title">
@@ -124,7 +146,12 @@
             <strong id="mode">Noch kein Status</strong>
           </div>
           <p class="card-description" id="system-note">Warte auf Gerätestatus.</p>
-          <div class="unavailable-foot"><span aria-hidden="true">i</span> Anzeige ohne Web-Umschaltung</div>
+          <div class="button-row">
+            <button class="action-button" id="btn-mode-nomercy" type="button" disabled>
+              <span>No-Mercy AN</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="stop-button" id="btn-mode-off" type="button" disabled>No-Mercy AUS</button>
+          </div>
         </article>
       </div>
 

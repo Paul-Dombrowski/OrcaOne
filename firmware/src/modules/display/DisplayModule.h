@@ -22,6 +22,8 @@ public:
     S_INFO_MENU,
     S_INFO_WIFI,
     S_INFO_DEVICES,
+    S_STATUS,
+    S_ACTION_RESULT,
     S_MESSAGE
   };
 
@@ -48,7 +50,7 @@ private:
   int menuIndex(Screen screen) const;
   Screen parentMenu(Screen screen) const;
   void activateMenuEntry(const MenuEntry& entry);
-  void dispatchPendingAction();
+  void dispatchAction(const MenuEntry& entry);
   int roundPixel(float value) const;
   float bodyAngle(float heading, float curl, float wiggle, float phase, float s) const;
   void buildSpine(float tailX, float tailY, float heading, float curl,
@@ -61,6 +63,9 @@ private:
   void drawMenu();
   void drawPlatzhalter();
   void drawInfoPage();
+  void drawStatus();
+  void drawActionResult();
+  void moduleStatusLines(const char* module, char lines[][26], int& lineCount);
   void drawMessage();
   void drawWaterLine(float phase);
   void initBubbles();
@@ -95,9 +100,8 @@ private:
   int _sel[kMenuStateCount]{};
   int _off[kMenuStateCount]{};
   Screen _returnTo = S_MENU;
-  MenuEntry _pendingAction{};
-  bool _hasPendingAction = false;
   CommandRouter* _router = nullptr;
   String _message;
+  const char* _actionModule = nullptr;
   unsigned long _messageUntil = 0;
 };
