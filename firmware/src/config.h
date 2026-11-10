@@ -47,6 +47,11 @@
 // Karten-Emulation: wie lange tgInitAsTarget je update()-Zyklus auf einen Leser
 // (das Handy) wartet. Blockiert update() fuer diese Dauer - daher moderat halten.
 #define NFC_EMU_INIT_TIMEOUT_MS 1500
+// Ausfuehrliches EMV-Protokoll auf Serial. 0 = ruhig (nur die kompakte, von der
+// SD zurueckgelesene Zusammenfassung je Karte). 1 = komplettes Protokoll:
+// Roh-APDU-Antworten ([DEBUG]), Schritt-fuer-Schritt ([EMV]), Feld-Echos (>>)
+// und der vollstaendige TLV-Karten-Dump. Fuer Fehlersuche auf 1 setzen.
+#define NFC_VERBOSE_LOG 0
 
 // ---- Drehgeber KY-040 (Menue-Navigation) ----
 #define PIN_ENCODER_CLK   25

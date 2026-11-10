@@ -1,10 +1,33 @@
 #include "InputModule.h"
 
 #include "../../config.h"
+#include <driver/gpio.h>
 
 namespace {
-const int8_t kEncoderTransitions[16] = {
+// Quadratur-Uebergangstabelle (4-Bit-Index aus alt<<2|neu). In DRAM, damit die
+// IRAM-ISR sie auch waehrend einer Flash-Operation sicher lesen kann.
+DRAM_ATTR const int8_t kEncoderTransitions[16] = {
     0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
+
+// Trampolin: attachInterruptArg uebergibt das InputModule als arg.
+void encoderIsrTrampoline(void* arg) {
+  static_cast<InputModule*>(arg)->onEncoderEdge();
+}
+}  // namespace
+
+void InputModule::onEncoderEdge() {
+  const uint8_t clk = gpio_get_level(static_cast<gpio_num_t>(PIN_ENCODER_CLK));
+  const uint8_t dt = gpio_get_level(static_cast<gpio_num_t>(PIN_ENCODER_DT));
+  _previousEncoder =
+      ((_previousEncoder << 2) | (clk << 1) | dt) & 0x0F;
+  _encoderAccumulator += kEncoderTransitions[_previousEncoder];
+  if (_encoderAccumulator >= 4) {
+    _encoderAccumulator = 0;
+    _netSteps = _netSteps + 1;  // explizit statt ++ (volatile: -Wvolatile)
+  } else if (_encoderAccumulator <= -4) {
+    _encoderAccumulator = 0;
+    _netSteps = _netSteps - 1;
+  }
 }
 
 void InputModule::begin() {
@@ -15,20 +38,41 @@ void InputModule::begin() {
   _previousEncoder =
       (static_cast<uint8_t>(digitalRead(PIN_ENCODER_CLK)) << 1) |
       static_cast<uint8_t>(digitalRead(PIN_ENCODER_DT));
+  _encoderAccumulator = 0;
+  _netSteps = 0;
+
+  // Beide Drehgeber-Signale auf Flanken-Interrupt. 'this' als Argument, damit
+  // die ISR die Instanz-Member fuellt.
+  attachInterruptArg(PIN_ENCODER_CLK, encoderIsrTrampoline, this, CHANGE);
+  attachInterruptArg(PIN_ENCODER_DT, encoderIsrTrampoline, this, CHANGE);
+
   _buttonRawHigh = digitalRead(PIN_ENCODER_SW) == HIGH;
   _buttonStableHigh = _buttonRawHigh;
   _buttonChangedAt = millis();
   _buttonPressedAt = _buttonStableHigh ? 0 : _buttonChangedAt;
   _ok = true;
-  Serial.println("[input] Drehgeber bereit.");
+  Serial.println("[input] Drehgeber bereit (Interrupt).");
 }
 
 void InputModule::update() {
   if (!_ok) return;
 
-  const int8_t step = readEncoderStep();
-  if (step > 0) enqueue(InputEvent::Down);
-  if (step < 0) enqueue(InputEvent::Up);
+  // Netto-Drehschritte aus dem ISR atomar abholen und in Events umsetzen.
+  noInterrupts();
+  int16_t steps = _netSteps;
+  _netSteps = 0;
+  interrupts();
+
+  // Richtung: positiv -> Auswahl hoch. Falls am Geraet falsch herum, nur dieses
+  // Vorzeichen-Mapping tauschen (Up<->Down).
+  while (steps > 0) {
+    enqueue(InputEvent::Up);
+    --steps;
+  }
+  while (steps < 0) {
+    enqueue(InputEvent::Down);
+    ++steps;
+  }
 
   const unsigned long now = millis();
   const bool rawHigh = digitalRead(PIN_ENCODER_SW) == HIGH;
@@ -95,21 +139,4 @@ void InputModule::enqueue(InputEvent event) {
   _events[_queueTail] = event;
   _queueTail = (_queueTail + 1) % kQueueCapacity;
   ++_queueSize;
-}
-
-int8_t InputModule::readEncoderStep() {
-  _previousEncoder =
-      ((_previousEncoder << 2) | (digitalRead(PIN_ENCODER_CLK) << 1) |
-       digitalRead(PIN_ENCODER_DT)) &
-      0x0F;
-  _encoderAccumulator += kEncoderTransitions[_previousEncoder];
-  if (_encoderAccumulator >= 4) {
-    _encoderAccumulator = 0;
-    return 1;
-  }
-  if (_encoderAccumulator <= -4) {
-    _encoderAccumulator = 0;
-    return -1;
-  }
-  return 0;
 }

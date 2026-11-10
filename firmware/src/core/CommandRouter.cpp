@@ -43,6 +43,16 @@ bool CommandRouter::dispatch(const String& module, const String& action,
   return false;  // unbekanntes Modul
 }
 
+bool CommandRouter::moduleStatus(const String& module, JsonObject out) {
+  for (size_t i = 0; i < _count; i++) {
+    if (module == _modules[i]->name()) {
+      _modules[i]->statusJson(out);
+      return true;
+    }
+  }
+  return false;
+}
+
 void CommandRouter::buildStatus(JsonObject root) {
   root["mode"] = _modeManager != nullptr ? _modeManager->modeName() : "manual";
   JsonObject mods = root["modules"].to<JsonObject>();

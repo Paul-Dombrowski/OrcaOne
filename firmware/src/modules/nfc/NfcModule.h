@@ -24,6 +24,11 @@ private:
   // fuer den zentralen Speicher-Dienst (Storage.save).
   String cardToJson() const;
 
+  // Liest den gerade gespeicherten Datensatz via Storage.load() ZURUECK und gibt
+  // ihn kompakt formatiert auf Serial aus. Dient zugleich als Verifikation: ein
+  // leerer Rueckgabestring bedeutet, dass das Speichern real fehlgeschlagen ist.
+  void printStoredCard(const String& key) const;
+
   PN532_I2C _transport;
   PN532 _reader;
   EmvReader _emvReader{_reader};
@@ -31,7 +36,7 @@ private:
 
   bool _ok = false;
   const char* _error = nullptr;
-  bool _readPending = true;
+  bool _readPending = false;  // Lesen nur auf Befehl (nfc.read), nicht ab Boot
   bool _hasPolled = false;
   unsigned long _lastPollMs = 0;
 

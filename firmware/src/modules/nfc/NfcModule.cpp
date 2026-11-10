@@ -41,7 +41,7 @@ void NfcModule::begin() {
   }
   _ok = true;
   _error = nullptr;
-  _readPending = true;
+  _readPending = false;  // wartet auf 'nfc read' (Menue/Serial), liest nicht von selbst
   Serial.print("[nfc] PN532 Firmware-Version: ");
   Serial.println((version >> 16) & 0xFF, DEC);
   Serial.println("[nfc] Bereit. Halten Sie eine Karte an den Leser...");
@@ -90,25 +90,31 @@ void NfcModule::update() {
   }
   _card.uid = String(uidStr);
 
-  Serial.println("\n====================================");
-  Serial.print("[INFO] Kontaktlose Karte erkannt! UID: ");
+  Serial.print("\n[nfc] Karte erkannt, UID ");
   Serial.println(_card.uid);
 
   _emvReader.readCard(_card, _capture);
 
-  // Auto-Save: eine erfolgreich gelesene Karte (Dump bis "ENDE DUMP" =
-  // _card.readSuccess) wird automatisch ueber den zentralen Speicher-Dienst
-  // abgelegt. Schluessel = 16-stellige Kartennummer -> gleiche Karte
-  // ueberschreibt sich selbst (kein Duplikat), verschiedene Karten liegen
+  // Auto-Save: eine erfolgreich gelesene Karte wird automatisch ueber den
+  // zentralen Speicher-Dienst abgelegt. Schluessel = Kartennummer -> gleiche
+  // Karte ueberschreibt sich selbst (kein Duplikat), verschiedene Karten liegen
   // nebeneinander. Laeuft auch ohne SD (dann fluechtig im RAM).
   if (_card.readSuccess && _card.cardNumber.length() > 0) {
-    const bool saved = Storage.save("nfc", _card.cardNumber, cardToJson());
-    Serial.println(saved ? "[nfc] Karte gespeichert" : "[nfc] Speichern fehlgeschlagen");
+    if (Storage.save("nfc", _card.cardNumber, cardToJson())) {
+      // Verifikation + Anzeige: Datensatz von der SD/RAM ZURUECKLESEN.
+      printStoredCard(_card.cardNumber);
+    } else {
+      Serial.println("[nfc] Speichern fehlgeschlagen.");
+    }
   } else if (_card.readSuccess) {
-    Serial.println("[nfc] Kartennummer fehlt - nicht gespeichert");
+    Serial.println("[nfc] Kartennummer fehlt - nicht gespeichert.");
   }
+  // Der Fall "gar nicht gelesen" wird bereits in EmvReader::readCard gemeldet.
 
-  Serial.println("====================================\n");
+  // Eine Karte wurde erfasst -> Lesen beenden. Weiteres Lesen erfordert einen
+  // neuen 'nfc read' (Menuepunkt "NFC lesen"). Verhindert Dauerlesen und haelt
+  // die Hauptschleife frei (sonst pollt readPassiveTargetID staendig blockierend).
+  _readPending = false;
 }
 
 String NfcModule::cardToJson() const {
@@ -129,6 +135,86 @@ String NfcModule::cardToJson() const {
   String out;
   serializeJson(doc, out);
   return out;
+}
+
+namespace {
+// Gibt "  Label        : Wert" aus - aber nur, wenn der Wert nicht leer ist.
+// Das Label wird auf feste Breite aufgefuellt, damit die Werte buendig stehen.
+void printField(const char* label, const String& value) {
+  if (value.length() == 0) return;
+  Serial.print("  ");
+  Serial.print(label);
+  for (size_t i = strlen(label); i < 16; ++i) Serial.print(' ');
+  Serial.print(": ");
+  Serial.println(value);
+}
+
+// Kartennummer in Vierergruppen - deutlich besser lesbar.
+String groupPan(const String& pan) {
+  String out;
+  for (size_t i = 0; i < pan.length(); ++i) {
+    out += pan[i];
+    if ((i % 4 == 3) && (i + 1 < pan.length())) out += ' ';
+  }
+  return out;
+}
+
+String countryName(const String& c) {
+  if (c == "0276") return c + " (Deutschland)";
+  if (c == "0040") return c + " (Oesterreich)";
+  if (c == "0756") return c + " (Schweiz)";
+  if (c == "0840") return c + " (USA)";
+  if (c == "0826") return c + " (Grossbritannien)";
+  return c;
+}
+
+String currencyName(const String& c) {
+  if (c == "0978") return c + " (EUR)";
+  if (c == "0840") return c + " (USD)";
+  if (c == "0826") return c + " (GBP)";
+  if (c == "0756") return c + " (CHF)";
+  return c;
+}
+}  // namespace
+
+void NfcModule::printStoredCard(const String& key) const {
+  // ZURUECKLESEN statt der RAM-Kopie: belegt, dass der Datensatz wirklich im
+  // Speicher liegt (Verifikation), und liefert gleich die formatierte Anzeige.
+  const String json = Storage.load("nfc", key);
+  if (json.length() == 0) {
+    Serial.println("[nfc] FEHLER: Datensatz nach dem Speichern nicht lesbar "
+                   "- Speichern fehlgeschlagen!");
+    return;
+  }
+
+  JsonDocument doc;
+  if (deserializeJson(doc, json)) {
+    Serial.println("[nfc] FEHLER: gespeicherter Datensatz ist kein gueltiges JSON.");
+    return;
+  }
+
+  const char* where = Storage.available() ? "SD-Karte"
+                                          : "RAM (fluechtig - keine SD gesteckt)";
+
+  Serial.println();
+  Serial.println("+=== NFC-Karte gespeichert (aus Speicher zurueckgelesen) ===");
+  printField("Speicher", where);
+  printField("Schluessel", key);
+  Serial.println("| ---------------------------------------------------------");
+  printField("Kartennummer", groupPan(doc["cardNumber"] | ""));
+  printField("Ablauf (JJ/MM)", doc["expiry"] | "");
+  printField("Kartentyp", doc["cardType"] | "");
+  printField("Inhaber", doc["cardholder"] | "");
+  printField("AID", doc["aid"] | "");
+  printField("Land", countryName(doc["countryCode"] | ""));
+  printField("Waehrung", currencyName(doc["currencyCode"] | ""));
+  printField("Gueltig ab", doc["effectiveDate"] | "");
+  printField("PSN", doc["psn"] | "");
+  printField("Service-Code", doc["serviceCode"] | "");
+  printField("AIP", doc["aip"] | "");
+  printField("UID", doc["uid"] | "");
+  Serial.println("+==========================================================");
+  Serial.println();
 }
 
 void NfcModule::statusJson(JsonObject obj) {
@@ -163,6 +249,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
       _emulating = false;
       _needReaderReinit = true;
     }
+    _card.clear();        // frischer Lesevorgang: alte Anzeige nicht stehen lassen
     _readPending = true;
     _hasPolled = false;
     return true;
@@ -186,6 +273,7 @@ bool NfcModule::handleCommand(const String& action, JsonObjectConst params) {
       _needReaderReinit = true;
       Serial.println("[emu] Emulation gestoppt.");
     }
+    _readPending = false;  // laufenden Lesevorgang beenden (Menue: zurueck)
     return true;
   }
 

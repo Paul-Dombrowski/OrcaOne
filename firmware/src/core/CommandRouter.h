@@ -34,6 +34,11 @@ public:
   // Dasselbe JSON fuer den Status-Push ans Handy und "status" in der Konsole.
   void buildStatus(JsonObject root);
 
+  // Status EINES Moduls in 'out' schreiben (fuer das Menue/Display, das live
+  // Werte eines Moduls anzeigen will - z. B. gelesene Kartendaten). true, wenn
+  // das Modul existiert. Entkoppelt wie die Web-UI: Display -> Router -> Modul.
+  bool moduleStatus(const String& module, JsonObject out);
+
   // Fuer die "help"-Ausgabe der Konsole (Liste der Modulnamen).
   size_t count() const { return _count; }
   const char* nameAt(size_t i) const { return _modules[i]->name(); }

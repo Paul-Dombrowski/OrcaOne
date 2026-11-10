@@ -1,5 +1,7 @@
 #include "EmvReader.h"
 
+#include "../../config.h"   // NFC_VERBOSE_LOG
+
 namespace {
 // Kontaktlos: 2PAY.SYS.DDF01 (PPSE)
 const uint8_t SelectPPSE[] = {
@@ -50,7 +52,9 @@ bool EmvReader::readCard(CardData& out, EmvCapture& cap) {
   bool ppseOk = selectPpse(aidList, cap);
 
   if (!ppseOk || aidList.empty()) {
+#if NFC_VERBOSE_LOG
     Serial.println("[EMV] PPSE leer oder fehlgeschlagen -> Verwende Fallback-AIDs");
+#endif
     for (const auto& fa : FallbackAids) {
       EmvAid item{};
       memcpy(item.aid, fa.aid, fa.len);
@@ -61,12 +65,15 @@ bool EmvReader::readCard(CardData& out, EmvCapture& cap) {
     }
   }
 
+#if NFC_VERBOSE_LOG
   Serial.print("[EMV] Gefundene / gepruefte Applikationen (AIDs): ");
   Serial.println(aidList.size());
+#endif
 
   // 2. Durchlaufe die AIDs
   for (size_t i = 0; i < aidList.size(); ++i) {
     const auto& item = aidList[i];
+#if NFC_VERBOSE_LOG
     Serial.print("[EMV] Versuche AID #");
     Serial.print(i + 1);
     Serial.print(" (");
@@ -76,14 +83,19 @@ bool EmvReader::readCard(CardData& out, EmvCapture& cap) {
     }
     Tlv::printHex(item.aid, item.len);
     Serial.print(")... ");
+#endif
 
     uint8_t fci[MaxBufferLength];
     uint8_t fciLen = 0;
     if (!selectAid(item.aid, item.len, fci, &fciLen)) {
+#if NFC_VERBOSE_LOG
       Serial.println("abgelehnt.");
+#endif
       continue;
     }
+#if NFC_VERBOSE_LOG
     Serial.println("erfolgreich selektiert!");
+#endif
 
     // AID merken
     char aidHex[40] = {0};
@@ -134,17 +146,21 @@ bool EmvReader::readCard(CardData& out, EmvCapture& cap) {
     if (gotData) {
       out.readSuccess = true;
       cap.valid = true;  // Mitschnitt ist brauchbar -> Emulation moeglich
+#if NFC_VERBOSE_LOG
       Serial.println("[SUCCESS] Kartendaten erfolgreich gelesen!");
       // Vollstaendiger Dump aller ueber NFC lesbaren Daten dieser Applikation.
       _dump.dumpAll(fci, fciLen, gpo, gpoLen, afl, aflLen, aflFound);
+#endif
       break;
     } else {
+#if NFC_VERBOSE_LOG
       Serial.println("[HINWEIS] Keine lesbaren Record-Daten unter dieser AID.");
+#endif
     }
   }
 
   if (!out.readSuccess) {
-    Serial.println("[FEHLER] Auslesen der Kartendaten auf allen verfuegbaren AIDs fehlgeschlagen.");
+    Serial.println("[nfc] Karte konnte auf keiner AID gelesen werden.");
   }
   return out.readSuccess;
 }
@@ -153,7 +169,9 @@ bool EmvReader::selectPpse(std::vector<EmvAid>& aidList, EmvCapture& cap) {
   uint8_t response[MaxBufferLength];
   uint8_t responseLength = sizeof(response);
 
+#if NFC_VERBOSE_LOG
   Serial.println("[EMV] Sende SELECT 2PAY.SYS.DDF01 (PPSE)...");
+#endif
   bool success = _reader.inDataExchange(
       const_cast<uint8_t*>(SelectPPSE),
       sizeof(SelectPPSE),
@@ -161,29 +179,37 @@ bool EmvReader::selectPpse(std::vector<EmvAid>& aidList, EmvCapture& cap) {
       &responseLength);
 
   if (!success || responseLength < 2) {
+#if NFC_VERBOSE_LOG
     Serial.println("[EMV] Keine Antwort auf PPSE-Kommando.");
+#endif
     return false;
   }
 
-  // [DEBUG] Rohantwort der Karte auf PPSE - temporaer zur Fehlersuche.
+#if NFC_VERBOSE_LOG
+  // [DEBUG] Rohantwort der Karte auf PPSE.
   Serial.print("[DEBUG] PPSE Rohantwort (");
   Serial.print(responseLength);
   Serial.print(" Byte): ");
   Tlv::printHex(response, responseLength);
   Serial.println();
+#endif
 
   uint8_t sw1 = response[responseLength - 2];
   uint8_t sw2 = response[responseLength - 1];
 
   if (sw1 != 0x90 || sw2 != 0x00) {
+#if NFC_VERBOSE_LOG
     Serial.print("[EMV] PPSE abgewiesen, Status: 0x");
     Serial.print(sw1, HEX);
     Serial.print(" 0x");
     Serial.println(sw2, HEX);
+#endif
     return false;
   }
 
+#if NFC_VERBOSE_LOG
   Serial.println("[EMV] PPSE erfolgreich beantwortet. Extrahiere AIDs...");
+#endif
   // Fuer die Emulation: rohe PPSE-Antwort (ohne SW) mitschneiden.
   cap.putBlob(cap.ppse, cap.ppseLen, response, responseLength - 2);
   Tlv::extractAllAids(response, responseLength - 2, aidList);
@@ -209,18 +235,21 @@ bool EmvReader::selectAid(const uint8_t* aid, uint8_t aidLen,
 
   bool success = _reader.inDataExchange(cmd, 5 + aidLen + 1, response, &responseLength);
   if (!success || responseLength < 2) {
-    // [DEBUG] temporaer: zeigt, ob die Karte ueberhaupt antwortet.
+#if NFC_VERBOSE_LOG
+    // [DEBUG] zeigt, ob die Karte ueberhaupt antwortet.
     Serial.print("[DEBUG] AID SELECT ohne verwertbare Antwort (success=");
     Serial.print(success ? "true" : "false");
     Serial.print(", len=");
     Serial.print(responseLength);
     Serial.println(")");
+#endif
     return false;
   }
 
   uint8_t sw1 = response[responseLength - 2];
   uint8_t sw2 = response[responseLength - 1];
-  // [DEBUG] temporaer: echtes Statuswort + Rohantwort je AID.
+#if NFC_VERBOSE_LOG
+  // [DEBUG] echtes Statuswort + Rohantwort je AID.
   Serial.print("[DEBUG] AID SELECT SW: 0x");
   if (sw1 < 0x10) Serial.print('0');
   Serial.print(sw1, HEX);
@@ -230,6 +259,7 @@ bool EmvReader::selectAid(const uint8_t* aid, uint8_t aidLen,
   Serial.print("  Rohantwort: ");
   Tlv::printHex(response, responseLength);
   Serial.println();
+#endif
 
   const bool ok = (sw1 == 0x90 && sw2 == 0x00);
   if (ok && outFci && outFciLen) {
@@ -304,13 +334,17 @@ bool EmvReader::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
     if (avail < 0) avail = 0;
     if (pdolLen > avail) pdolLen = static_cast<uint8_t>(avail);
     pdolDataLen = buildPdolData(&fci[pdolIdx + 3], pdolLen, pdolData, sizeof(pdolData));
+#if NFC_VERBOSE_LOG
     Serial.print("[EMV] PDOL (Tag 9F38) gefunden, Laenge ");
     Serial.print(pdolLen);
     Serial.print(" -> GPO-Daten ");
     Serial.print(pdolDataLen);
     Serial.println(" Byte.");
+#endif
   } else {
+#if NFC_VERBOSE_LOG
     Serial.println("[EMV] Kein PDOL im FCI -> leeres GPO (83 00).");
+#endif
   }
 
   cmd[cmdLen++] = static_cast<uint8_t>(2 + pdolDataLen);  // Lc
@@ -322,31 +356,39 @@ bool EmvReader::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
   uint8_t response[MaxBufferLength];
   uint8_t responseLength = sizeof(response);
 
+#if NFC_VERBOSE_LOG
   Serial.println("[EMV] Sende GET PROCESSING OPTIONS (GPO)...");
+#endif
   bool success = _reader.inDataExchange(cmd, cmdLen, response, &responseLength);
 
   if (!success || responseLength < 2) {
+#if NFC_VERBOSE_LOG
     Serial.println("[EMV] GPO Anfrage fehlgeschlagen.");
+#endif
     return false;
   }
 
   uint8_t sw1 = response[responseLength - 2];
   uint8_t sw2 = response[responseLength - 1];
 
-  // [DEBUG] temporaer: GPO-Rohantwort.
+#if NFC_VERBOSE_LOG
+  // [DEBUG] GPO-Rohantwort.
   Serial.print("[DEBUG] GPO Rohantwort (");
   Serial.print(responseLength);
   Serial.print(" Byte): ");
   Tlv::printHex(response, responseLength);
   Serial.println();
+#endif
 
   if (sw1 != 0x90 || sw2 != 0x00) {
+#if NFC_VERBOSE_LOG
     Serial.print("[EMV] GPO Status: 0x");
     if (sw1 < 0x10) Serial.print('0');
     Serial.print(sw1, HEX);
     Serial.print(" 0x");
     if (sw2 < 0x10) Serial.print('0');
     Serial.println(sw2, HEX);
+#endif
     return false;
   }
 
@@ -380,8 +422,10 @@ bool EmvReader::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
     if (len <= 64 && aflIdx + 2 + len <= bodyLen) {
       memcpy(outAfl, &body[aflIdx + 2], len);
       outAflLen = len;
+#if NFC_VERBOSE_LOG
       Serial.print("[EMV] AFL (Tag 0x94) gefunden. Laenge: ");
       Serial.println(outAflLen);
+#endif
       return true;
     }
   }
@@ -395,14 +439,18 @@ bool EmvReader::tryGetProcessingOptions(const uint8_t* fci, uint8_t fciLen,
       if (aflBytes <= 64 && format1Idx + 4 + aflBytes <= dataLen) {
         memcpy(outAfl, &response[format1Idx + 4], aflBytes);
         outAflLen = aflBytes;
+#if NFC_VERBOSE_LOG
         Serial.print("[EMV] AFL in Format 1 Response gefunden. Laenge: ");
         Serial.println(outAflLen);
+#endif
         return true;
       }
     }
   }
 
+#if NFC_VERBOSE_LOG
   Serial.println("[EMV] GPO ok, aber kein AFL gefunden.");
+#endif
   return false;
 }
 
@@ -435,7 +483,9 @@ bool EmvReader::readCardRecords(const uint8_t* afl, uint8_t aflLen, CardData& ca
   }
 
   // Fallback: Probiere bekannte SFIs (1 bis 3) und Records (1 bis 3)
+#if NFC_VERBOSE_LOG
   Serial.println("[EMV] Probiere Standard SFIs/Records...");
+#endif
   const uint8_t sfis[] = { 1, 2, 3 };
   for (uint8_t sfi : sfis) {
     for (uint8_t rec = 1; rec <= 3; ++rec) {
@@ -474,12 +524,14 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     if (panStr.length() >= 12) {
       out.cardNumber = panStr;
       parsedAnything = true;
+#if NFC_VERBOSE_LOG
       Serial.print(">> KARTENNUMMER (Tag 0x5A): ");
       for (size_t i = 0; i < panStr.length(); ++i) {
         Serial.print(panStr[i]);
         if ((i % 4 == 3) && (i + 1 < panStr.length())) Serial.print(' ');
       }
       Serial.println();
+#endif
     }
   }
 
@@ -493,8 +545,10 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
              ((expData[1] >> 4) & 0x0F) * 10 + (expData[1] & 0x0F));
     out.expiry = String(expStr);
     parsedAnything = true;
+#if NFC_VERBOSE_LOG
     Serial.print(">> ABLAUFDATUM (Tag 0x5F24): ");
     Serial.println(out.expiry);
+#endif
   }
 
   // 3. Tag 0x57: Track 2 Equivalent Data (oft vorhanden, wenn 0x5A nicht direkt existiert)
@@ -508,18 +562,22 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     if (out.cardNumber.length() == 0 && tr2Pan.length() >= 12) {
       out.cardNumber = tr2Pan;
       parsedAnything = true;
+#if NFC_VERBOSE_LOG
       Serial.print(">> KARTENNUMMER (Track 2): ");
       for (size_t i = 0; i < tr2Pan.length(); ++i) {
         Serial.print(tr2Pan[i]);
         if ((i % 4 == 3) && (i + 1 < tr2Pan.length())) Serial.print(' ');
       }
       Serial.println();
+#endif
     }
     if (out.expiry.length() == 0 && tr2Exp.length() > 0) {
       out.expiry = tr2Exp;
       parsedAnything = true;
+#if NFC_VERBOSE_LOG
       Serial.print(">> ABLAUFDATUM (Track 2): ");
       Serial.println(out.expiry);
+#endif
     }
   }
 
@@ -535,8 +593,10 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     out.cardholder.trim();
     if (out.cardholder.length() > 0) {
       parsedAnything = true;
+#if NFC_VERBOSE_LOG
       Serial.print(">> KARTENINHABER (Tag 0x5F20): ");
       Serial.println(out.cardholder);
+#endif
     }
   }
 
@@ -548,12 +608,14 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     snprintf(ccBuf, sizeof(ccBuf), "%02X%02X", ccData[0], ccData[1]);
     out.countryCode = String(ccBuf);
     parsedAnything = true;
+#if NFC_VERBOSE_LOG
     Serial.print(">> LAENDER-CODE (Tag 0x5F28): ");
     Serial.print(out.countryCode);
     if (out.countryCode == "0276") Serial.print(" (Deutschland)");
     else if (out.countryCode == "0040") Serial.print(" (Oesterreich)");
     else if (out.countryCode == "0756") Serial.print(" (Schweiz)");
     Serial.println();
+#endif
   }
 
   // 6. Tag 0x5F25: Application Effective Date (Gueltig ab, JJMMTT BCD)
@@ -564,8 +626,10 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     snprintf(effBuf, sizeof(effBuf), "%02X/%02X/%02X", effData[0], effData[1], effData[2]);
     out.effectiveDate = String(effBuf);
     parsedAnything = true;
+#if NFC_VERBOSE_LOG
     Serial.print(">> GUELTIG AB (Tag 0x5F25 JJ/MM/TT): ");
     Serial.println(out.effectiveDate);
+#endif
   }
 
   // 7. Tag 0x5F30: Service Code (3 Ziffern, Track 2 Service Attributes)
@@ -576,8 +640,10 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     snprintf(scBuf, sizeof(scBuf), "%02X%01X", scData[0], (scData[1] >> 4) & 0x0F);
     out.serviceCode = String(scBuf);
     parsedAnything = true;
+#if NFC_VERBOSE_LOG
     Serial.print(">> SERVICE CODE (Tag 0x5F30): ");
     Serial.println(out.serviceCode);
+#endif
   }
 
   // 8. Tag 0x5F34: PAN Sequence Number (PSN, 1 Byte)
@@ -588,8 +654,10 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     snprintf(psnBuf, sizeof(psnBuf), "%02X", psnVal);
     out.psn = String(psnBuf);
     parsedAnything = true;
+#if NFC_VERBOSE_LOG
     Serial.print(">> KARTENFOLGENUMMER / PSN (Tag 0x5F34): ");
     Serial.println(out.psn);
+#endif
   }
 
   // 9. Tag 0x9F42: Application Currency Code (ISO 4217, z.B. 0978 = EUR)
@@ -600,6 +668,7 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     snprintf(currBuf, sizeof(currBuf), "%02X%02X", currData[0], currData[1]);
     out.currencyCode = String(currBuf);
     parsedAnything = true;
+#if NFC_VERBOSE_LOG
     Serial.print(">> WAEHRUNGS-CODE (Tag 0x9F42): ");
     Serial.print(out.currencyCode);
     if (out.currencyCode == "0978") Serial.print(" (EUR)");
@@ -607,6 +676,7 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     else if (out.currencyCode == "0826") Serial.print(" (GBP)");
     else if (out.currencyCode == "0756") Serial.print(" (CHF)");
     Serial.println();
+#endif
   }
 
   // 10. Tag 0x82: Application Interchange Profile (AIP, 2 Bytes)
@@ -618,14 +688,17 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
     snprintf(aipBuf, sizeof(aipBuf), "%02X%02X", aip1, aip2);
     out.aip = String(aipBuf);
     parsedAnything = true;
+#if NFC_VERBOSE_LOG
     Serial.print(">> AIP (Tag 0x82): 0x");
     Serial.println(out.aip);
     if (aip1 & 0x40) Serial.println("    [+] SDA (Static Data Authentication)");
     if (aip1 & 0x20) Serial.println("    [+] DDA (Dynamic Data Authentication)");
     if (aip1 & 0x10) Serial.println("    [+] Cardholder Verification");
     if (aip1 & 0x01) Serial.println("    [+] CDA (Combined DDA/AC Generation)");
+#endif
   }
 
+#if NFC_VERBOSE_LOG
   // 11. Tag 0x8E: Cardholder Verification Method (CVM) List
   int cvmIdx = Tlv::findTag(data, dataLen, 0x8E);
   if (cvmIdx != -1) {
@@ -654,6 +727,7 @@ bool EmvReader::parseRecordData(CardData& out, const uint8_t* data, uint8_t data
   if (verIdx != -1) {
     Serial.printf(">> APP VERSION (Tag 0x9F08): %02X%02X\n", data[verIdx + 3], data[verIdx + 4]);
   }
+#endif  // NFC_VERBOSE_LOG
 
   return parsedAnything;
 }
