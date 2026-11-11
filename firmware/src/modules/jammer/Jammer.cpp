@@ -11,7 +11,9 @@ JammerModule::JammerModule()
     // 16 MHz SPI (statt Default 10 MHz): schnellere setChannel()-Schreibzugriffe
     // -> dichterer Sweep. Wert aus dem erprobten Standalone-Sketch. Bei
     // Instabilitaet auf 10000000 reduzieren.
-    : _radio(PIN_NRF_CE, PIN_NRF_CSN, 16000000) {}
+    // Radio 2 (Option A) am selben Bus, eigenes CE/CSN, ebenfalls 16 MHz.
+    : _radio(PIN_NRF_CE, PIN_NRF_CSN, 16000000),
+      _radio2(PIN_NRF2_CE, PIN_NRF2_CSN, 16000000) {}
 
 void JammerModule::begin() {
   _ok = false;
@@ -48,6 +50,27 @@ void JammerModule::begin() {
 
   _ok = true;
   Serial.println("[jammer] NRF24 bereit");
+
+  // Zweites NRF24 am SELBEN Bus (eigenes CE/CSN) erkennen und - bei Erfolg -
+  // IDENTISCH zu Radio 1 konfigurieren. Sequentiell nach Radio 1, vor dem
+  // Task-Start -> kein nebenlaeufiger Bus-Zugriff. Fehlt es, laeuft der Jammer
+  // einarmig weiter (Voll-Sweep, siehe sweepTask).
+  if (_radio2.begin(&SPI)) {
+    _radio2.setAutoAck(false);
+    _radio2.setRetries(0, 0);
+    _radio2.setPayloadSize(5);
+    _radio2.setAddressWidth(3);
+    _radio2.setPALevel(JAM_PA_LEVEL, true);
+    _radio2.setDataRate(RF24_2MBPS);
+    _radio2.setCRCLength(RF24_CRC_DISABLED);
+    _radio2.stopListening();
+    _radio2.setChannel(_channel2);
+    _ok2 = true;
+    Serial.println("[jammer] NRF24 #2 bereit (Dual-Antenne, Bandteilung)");
+  } else {
+    _ok2 = false;
+    Serial.println("[jammer] NRF24 #2 nicht gefunden - Einzel-Antenne, Voll-Sweep");
+  }
 }
 
 void JammerModule::update() {
@@ -88,8 +111,10 @@ void JammerModule::sweepTask(void* arg) {
 
 void JammerModule::statusJson(JsonObject obj) {
   obj["ok"] = _ok;
+  obj["ok2"] = _ok2;
   obj["active"] = _active;
   obj["channel"] = _channel;
+  obj["channel2"] = _channel2;
   obj["mode"] = _active ? "jamming" : "idle";
 }
 

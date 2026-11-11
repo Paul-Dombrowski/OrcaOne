@@ -83,6 +83,11 @@
 // besser. Werte: RF24_PA_MIN / RF24_PA_LOW / RF24_PA_HIGH / RF24_PA_MAX.
 #define JAM_PA_LEVEL   RF24_PA_MAX
 
+// ---- Zweites NRF24 (Option A: selber VSPI-Bus, eigene CE/CSN) ----
+#define PIN_NRF2_CE   32   // Radio 2: CE  (freier Output-GPIO, kein Strapping-Pin)
+#define PIN_NRF2_CSN  33   // Radio 2: CSN (freier Output-GPIO, kein Strapping-Pin)
+#define JAM_CH_MID    40   // Bandteilung: Radio 1 sweept MIN..MID, Radio 2 MID..MAX
+
 // ---- Micro-SD (Add-on, SPI, teilt Bus mit NRF24; eigener CS-Pin) ----
 // Vom Speicher-Dienst (storage/) genutzt. Muss ein ANDERER Pin sein als
 // PIN_NRF_CSN (5). Am D1 R32 vor dem Hardware-Aufbau verifizieren.

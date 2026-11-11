@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../core/Module.h"
+#include "../../config.h"   // JAM_CH_MID fuer den _channel2-Default
 #include <RF24.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -29,5 +30,11 @@ private:
   volatile bool _running = false;   // Laufsignal an den Sweep-Task
   volatile uint8_t _channel = 45;   // aktueller Kanal (Task schreibt, Status liest)
 
+  // Zweites NRF24 (Option A): selber VSPI-Bus, eigenes CE/CSN. _ok2 false, wenn
+  // nicht verdrahtet -> der Sweep-Task faellt auf Einzel-Radio-Voll-Sweep zurueck.
+  volatile bool _ok2 = false;
+  volatile uint8_t _channel2 = JAM_CH_MID;  // aktueller Kanal Radio 2 (Status liest)
+
   RF24 _radio;
+  RF24 _radio2;
 };
