@@ -67,6 +67,7 @@ private:
   static constexpr int kMenuStateCount = 3;   // S_MENU, S_IR_MENU, S_INFO_MENU
   static constexpr int kToggleCount = 2;      // 2,4 GHz, No-Mercy
   static constexpr int kVisibleMenuRows = 4;
+  static constexpr int kVisibleListRows = 3;  // Listen mit Titelzeile: 3 Zeilen
   static constexpr int kMaxListItems = 20;
   static constexpr unsigned long kRefreshMs = 1500;      // Selbst-Heil-Redraw
   static constexpr unsigned long kLiveRefreshMs = 150;   // Live-Screens fluessig

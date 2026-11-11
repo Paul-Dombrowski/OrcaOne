@@ -176,8 +176,8 @@ void DisplayModule::handleInput(InputEvent event) {
       }
       if (_listSel < _listOff) {
         _listOff = _listSel;
-      } else if (_listSel >= _listOff + kVisibleMenuRows) {
-        _listOff = _listSel - kVisibleMenuRows + 1;
+      } else if (_listSel >= _listOff + kVisibleListRows) {
+        _listOff = _listSel - kVisibleListRows + 1;
       }
     }
     _needsRedraw = true;
@@ -515,7 +515,7 @@ void DisplayModule::drawDynamicList() {
   }
 
   // 3 Zeilen unter der Titelzeile (y 16..63).
-  const int rows = 3;
+  const int rows = kVisibleListRows;
   for (int row = 0; row < rows; ++row) {
     const int i = _listOff + row;
     if (i >= _listCount) break;
