@@ -88,6 +88,13 @@
 #define PIN_NRF2_CSN  33   // Radio 2: CSN (freier Output-GPIO, kein Strapping-Pin)
 #define JAM_CH_MID    40   // Bandteilung: Radio 1 sweept MIN..MID, Radio 2 MID..MAX
 
+// ---- WLAN-Profil: drei 20-MHz-Bloecke (WLAN-Kanal 1/6/11) als NRF-Kanaele ----
+#define JAM_WIFI_BLOCK_WIDTH 21                  // Kanaele je Block (lo..lo+20)
+#define JAM_WIFI_B1_LO        2                  // WLAN 1  -> NRF 2..22
+#define JAM_WIFI_B2_LO       27                  // WLAN 6  -> NRF 27..47
+#define JAM_WIFI_B3_LO       52                  // WLAN 11 -> NRF 52..72
+#define JAM_WIFI_CH_COUNT   (3 * JAM_WIFI_BLOCK_WIDTH)  // 63
+
 // ---- Micro-SD (Add-on, SPI, teilt Bus mit NRF24; eigener CS-Pin) ----
 // Vom Speicher-Dienst (storage/) genutzt. Muss ein ANDERER Pin sein als
 // PIN_NRF_CSN (5). Am D1 R32 vor dem Hardware-Aufbau verifizieren.

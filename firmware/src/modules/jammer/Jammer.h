@@ -16,11 +16,24 @@ public:
   void statusJson(JsonObject obj) override;
   bool handleCommand(const String& action, JsonObjectConst params) override;
 
+  // Stoerprofil: welcher Kanalbereich gesweept wird.
+  //   PROF_FULL  - ganzes Band 0..80 (Bluetooth/AFH; auch No-Mercy)
+  //   PROF_WIFI  - nur die drei 20-MHz-WLAN-Bloecke (dichter), siehe config.h
+  enum JamProfile { PROF_FULL, PROF_WIFI };
+
 private:
   // Sweep-Task: schaltet den Traeger EINMAL an und stimmt dann das Band
   // dauerhaft flat-out durch. Laeuft auf einem eigenen Core, damit loop()
   // und die Serial-Konsole bedienbar bleiben (update() bleibt leer).
   static void sweepTask(void* arg);
+
+  // Index (0..JAM_WIFI_CH_COUNT-1) -> NRF-Kanal innerhalb der drei WLAN-Bloecke.
+  static uint8_t wifiChannelAt(uint16_t idx);
+
+  // Kapselt die Start-Sequenz (WLAN aus, Task erzeugen); idempotent: laeuft der
+  // Jammer schon, nur true zurueckgeben (kein zweiter Task). Das Profil setzt
+  // der Aufrufer (handleCommand) vorher.
+  bool startJamming();
 
   bool _ok = false;
   // _active bleibt true, bis der Task wirklich ausgelaufen ist (der Task nullt
@@ -34,6 +47,10 @@ private:
   // nicht verdrahtet -> der Sweep-Task faellt auf Einzel-Radio-Voll-Sweep zurueck.
   volatile bool _ok2 = false;
   volatile uint8_t _channel2 = JAM_CH_MID;  // aktueller Kanal Radio 2 (Status liest)
+
+  // Aktives Profil. Befehl schreibt (loop()-Task), Sweep-Task liest je Durchlauf
+  // -> Profilwechsel wirkt ohne Neustart (Traeger bleibt an). volatile wie _channel.
+  volatile JamProfile _profile = PROF_FULL;
 
   // Diagnose: wie oft der Sweep-Task pro Sekunde das (halbe) Band komplett
   // durchstimmt. = wie oft jeder Kanal einer Bandhaelfte je Sekunde getroffen

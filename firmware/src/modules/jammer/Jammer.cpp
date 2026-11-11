@@ -82,6 +82,15 @@ void JammerModule::update() {
   // update() muss nicht-blockierend sein (ARBEITSWEISE §6) - daher leer.
 }
 
+// Bildet einen laufenden Index auf den NRF-Kanal innerhalb der drei WLAN-Bloecke
+// ab (Block 0..2 je JAM_WIFI_BLOCK_WIDTH breit, ab B1/B2/B3_LO). Reine Funktion.
+uint8_t JammerModule::wifiChannelAt(uint16_t idx) {
+  static const uint8_t lo[3] = {JAM_WIFI_B1_LO, JAM_WIFI_B2_LO, JAM_WIFI_B3_LO};
+  const uint8_t block = idx / JAM_WIFI_BLOCK_WIDTH;   // 0..2
+  const uint8_t within = idx % JAM_WIFI_BLOCK_WIDTH;  // 0..20
+  return lo[block] + within;
+}
+
 void JammerModule::sweepTask(void* arg) {
   auto* self = static_cast<JammerModule*>(arg);
 
@@ -105,8 +114,24 @@ void JammerModule::sweepTask(void* arg) {
 
   uint32_t lastYield = millis();
   while (self->_running) {
-    if (self->_ok2) {
-      // Gleichschritt: beide Radios pro Iteration fast gleichzeitig umstimmen.
+    if (self->_profile == PROF_WIFI) {
+      // WLAN-Profil: nur die drei 20-MHz-Bloecke, Luecken ausgelassen. Bei Dual
+      // laeuft Radio 2 um die halbe Menge versetzt -> doppelte Trefferdichte.
+      if (self->_ok2) {
+        const uint16_t half = JAM_WIFI_CH_COUNT / 2;
+        for (uint16_t i = 0; i < JAM_WIFI_CH_COUNT; ++i) {
+          self->_radio.setChannel(wifiChannelAt(i));
+          self->_radio2.setChannel(wifiChannelAt((i + half) % JAM_WIFI_CH_COUNT));
+        }
+      } else {
+        for (uint16_t i = 0; i < JAM_WIFI_CH_COUNT; ++i) {
+          self->_radio.setChannel(wifiChannelAt(i));
+        }
+      }
+      self->_channel = wifiChannelAt(JAM_WIFI_CH_COUNT - 1);
+      self->_channel2 = wifiChannelAt(JAM_WIFI_CH_COUNT - 1);
+    } else if (self->_ok2) {
+      // PROF_FULL, Dual: Gleichschritt, beide Radios pro Iteration umstimmen.
       // Radio 1: JAM_CH_MIN..JAM_CH_MID, Radio 2: JAM_CH_MID..JAM_CH_MAX
       // (gleich viele Schritte; Ueberlappung auf JAM_CH_MID ist unschaedlich).
       for (uint8_t i = 0; i <= (JAM_CH_MID - JAM_CH_MIN); ++i) {
@@ -116,7 +141,7 @@ void JammerModule::sweepTask(void* arg) {
       self->_channel = JAM_CH_MID;
       self->_channel2 = JAM_CH_MAX;
     } else {
-      // Fallback ohne Radio 2: ein Radio sweept das ganze Band (wie bisher).
+      // PROF_FULL ohne Radio 2: ein Radio sweept das ganze Band (wie bisher).
       for (uint8_t ch = JAM_CH_MIN; ch <= JAM_CH_MAX; ++ch) {
         self->_radio.setChannel(ch);   // flat-out umstimmen, kein Delay
       }
@@ -161,7 +186,37 @@ void JammerModule::statusJson(JsonObject obj) {
   obj["channel"] = _channel;
   obj["channel2"] = _channel2;
   obj["sweepHz"] = _sweepHz;   // Durchlaeufe/s (0 = Task laeuft nicht)
+  obj["profile"] = (_profile == PROF_WIFI) ? "wifi" : "full";
   obj["mode"] = _active ? "jamming" : "idle";
+}
+
+bool JammerModule::startJamming() {
+  if (_active) {
+    // schon aktiv (oder ein vorheriger Task laeuft noch aus) -> kein zweiter
+    // Task/Traeger. Das Profil ist bereits gesetzt und wird vom laufenden Sweep
+    // ab dem naechsten Durchlauf uebernommen (Profilwechsel ohne Neustart).
+    return true;
+  }
+  // WLAN AUS, bevor der Traeger kommt: sonst funkt der ESP32-WLAN-Sender im
+  // selben 2,4-GHz-Band gegen den Jammer und seine TX-Spitzen lassen die 3,3 V
+  // einbrechen (NRF24-PA ausgehungert). Hier im loop()-Task -> single-threaded
+  // zu Net.update().
+  Net.suspend();
+  _running = true;
+  _active = true;
+  const BaseType_t ok =
+      xTaskCreatePinnedToCore(&JammerModule::sweepTask, "jam",
+                              JAM_TASK_STACK, this, JAM_TASK_PRIORITY,
+                              nullptr, JAM_TASK_CORE);
+  if (ok != pdPASS) {
+    _running = false;
+    _active = false;
+    Net.resume();  // Taskstart fehlgeschlagen -> WLAN sofort wieder hoch
+    Serial.println("[jammer] Task konnte nicht gestartet werden");
+    return false;
+  }
+  Serial.println("[jammer] Störung aktiviert");
+  return true;
 }
 
 bool JammerModule::handleCommand(const String& action, JsonObjectConst params) {
@@ -171,34 +226,16 @@ bool JammerModule::handleCommand(const String& action, JsonObjectConst params) {
     return false;
   }
 
-  if (action == "start") {
-    if (_active) {
-      // schon aktiv (oder ein vorheriger Task laeuft noch aus) -> kein zweiter
-      // Task/Traeger, sonst gleichzeitiger SPI-Zugriff. Direkt nach "stop"
-      // ggf. "start" kurz erneut senden.
-      return true;
-    }
-    // WLAN AUS, bevor der Traeger kommt: sonst funkt der ESP32-WLAN-Sender im
-    // selben 2,4-GHz-Band gegen den Jammer und seine TX-Spitzen lassen die 3,3 V
-    // einbrechen (NRF24-PA ausgehungert). Hier im loop()-Task -> single-threaded
-    // zu Net.update(). Erklaert, warum der Standalone jammt, die integrierte
-    // Version mit laufendem WLAN bisher nicht.
-    Net.suspend();
-    _running = true;
-    _active = true;
-    const BaseType_t ok =
-        xTaskCreatePinnedToCore(&JammerModule::sweepTask, "jam",
-                                JAM_TASK_STACK, this, JAM_TASK_PRIORITY,
-                                nullptr, JAM_TASK_CORE);
-    if (ok != pdPASS) {
-      _running = false;
-      _active = false;
-      Net.resume();  // Taskstart fehlgeschlagen -> WLAN sofort wieder hoch
-      Serial.println("[jammer] Task konnte nicht gestartet werden");
-      return false;
-    }
-    Serial.println("[jammer] Störung aktiviert");
-    return true;
+  // Profil waehlen + starten. "WLAN" = nur WLAN-Bloecke, "BT"/"start" = ganzes
+  // Band (Bluetooth/AFH; auch der Weg, ueber den No-Mercy den Jammer startet).
+  // Bei laufendem Jammer setzt dies nur das Profil um (Live-Wechsel, kein Neustart).
+  if (action == "WLAN") {
+    _profile = PROF_WIFI;
+    return startJamming();
+  }
+  if (action == "BT" || action == "start") {
+    _profile = PROF_FULL;
+    return startJamming();
   }
 
   if (action == "stop") {
