@@ -72,9 +72,24 @@ void IrModule::update() {
       unsigned long now = millis();
       if (now - _lastSendMs >= IR_SEND_GAP_MS) {
         _lastSendMs = now;
-        const Signal& s = _playList[_playIdx];
+        const size_t n = _playList.size();
+        // Letzter Chunk kann kuerzer sein als IR_SHUTOFF_CHUNK.
+        size_t chunkLen = min((size_t)IR_SHUTOFF_CHUNK, n - _chunkStart);
+        // Keinen Rest-Chunk der Groesse 1 entstehen lassen: sonst laegen dessen
+        // zwei Druecke nur IR_SEND_GAP_MS auseinander (kein echter Abstand).
+        // Deterministisch aus _chunkStart -> jeder Tick berechnet denselben Wert.
+        if (n - _chunkStart - chunkLen == 1) chunkLen = n - _chunkStart;
+        const Signal& s = _playList[_chunkStart + _chunkPos];
         _send->sendRaw(s.raw.data(), s.raw.size(), s.khz);
-        _playIdx = (_playIdx + 1) % _playList.size();  // Dauerschleife
+
+        if (++_chunkPos >= chunkLen) {          // Chunk einmal komplett durch
+          _chunkPos = 0;
+          if (++_chunkRep >= IR_SHUTOFF_CHUNK_REPEATS) {  // oft genug wiederholt
+            _chunkRep = 0;
+            _chunkStart += chunkLen;            // naechster Chunk
+            if (_chunkStart >= n) _chunkStart = 0;  // Dauerschleife: zurueck an den Anfang
+          }
+        }
       }
       break;
     }
@@ -155,7 +170,9 @@ bool IrModule::handleCommand(const String& action, JsonObjectConst params) {
     std::vector<Signal> sigs;
     if (!jsonToSignals(arr, sigs)) { Serial.println("[ir] Ausschaltliste leer/unlesbar"); return false; }
     _playList = std::move(sigs);
-    _playIdx = 0;
+    _chunkStart = 0;
+    _chunkPos = 0;
+    _chunkRep = 0;
     _state = State::Shutoff;
     _lastSendMs = 0;
     _hasShutoff = true;

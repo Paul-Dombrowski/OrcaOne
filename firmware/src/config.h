@@ -110,6 +110,14 @@
 #define IR_CAPTURE_BUFFER       256   // IRrecv-Pufferlaenge (rohe Timing-Eintraege)
 #define IR_SEND_GAP_MS          100   // Pause zwischen zwei gesendeten Signalen (ms)
 #define IR_RECORD_UNKNOWN_THRESHOLD 12 // kurze Stoersignale (GPIO34) ausfiltern
+// Ausschalt-Sequenz: Manche Geraete brauchen den Off-Code zweimal mit etwas
+// Abstand (Bestaetigungsfenster), um wirklich herunterzufahren. Statt denselben
+// Code direkt doppelt zu senden, wird die Liste in Chunks aufgeteilt; jeder
+// Chunk wird mehrfach durchlaufen, bevor zum naechsten gewechselt wird. So
+// liegt der Abstand zwischen zwei Druecken eines Geraets bei ~CHUNK*GAP ms
+// (begrenzt, unabhaengig von der Gesamtlistenlaenge).
+#define IR_SHUTOFF_CHUNK          4   // Codes pro Chunk (>=2, sonst kein Abstand)
+#define IR_SHUTOFF_CHUNK_REPEATS  2   // Durchlaeufe je Chunk, bevor gewechselt wird
 
 // ---- Speicher-Slots NFC ----
 #define NFC_SLOT_COUNT    3    // Anzahl speicherbarer NFC-Tags
