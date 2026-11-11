@@ -62,6 +62,10 @@ private:
 
   std::vector<Signal> _capture;        // laufende Aufnahme
   std::vector<Signal> _playList;       // Signale fuer Sending/Shutoff
-  size_t _playIdx = 0;                 // Reihenfolge im Shutoff-Modus
+  // Shutoff-Chunking: aktueller Chunk-Start (absoluter Index), Position im Chunk,
+  // Anzahl bisheriger Durchlaeufe dieses Chunks.
+  size_t _chunkStart = 0;              // erster Index des aktuellen Chunks
+  size_t _chunkPos = 0;               // Offset im Chunk (0..chunkLen-1)
+  uint8_t _chunkRep = 0;              // bisherige Durchlaeufe des Chunks
   unsigned long _lastSendMs = 0;       // millis-Takt fuers Senden
 };
