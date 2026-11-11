@@ -135,11 +135,12 @@
       dom.jammerNote.textContent = "Die Firmware hat beim Start keine Antwort vom NRF24 erhalten.";
     } else {
       const active = jammer.active === true;
+      const profileLabel = jammer.profile === "wifi" ? "WLAN" : "Bluetooth";
       setModuleIndicator("jammer-ready", active ? "not-ready" : "ready", active ? "Aktiv" : "Bereit");
-      dom.jammerState.textContent = active ? "Aktiv" : "Bereit";
+      dom.jammerState.textContent = active ? `Aktiv · ${profileLabel}` : "Bereit";
       dom.jammerNote.textContent = active
-        ? `Störung aktiv auf Kanal ${Number.isInteger(jammer.channel) ? jammer.channel : "—"}. „Störung stoppen“ beendet den Dauerträger.`
-        : "NRF24 bereit. „Störung starten“ sendet einen Dauerträger (hoher Strombedarf; kann die Versorgung belasten).";
+        ? `${profileLabel}-Störung aktiv. „Störung stoppen“ beendet den Dauerträger. Zum Umschalten den anderen Modus wählen.`
+        : "NRF24 bereit. „WLAN stören“ trifft nur die WLAN-Blöcke, „Bluetooth stören“ das ganze Band (hoher Strombedarf).";
     }
 
     // NFC-Kartendaten (nur bei erfolgreichem EMV-Dump).
@@ -167,8 +168,9 @@
     // Ausschalt-Sequenz nur, wenn eine Liste gespeichert ist (hasShutoff) und Ruhe.
     dom.irShutoff.disabled = base || !irReady || !irIdle || !(ir && ir.hasShutoff === true);
 
-    // Jammer: Start nur wenn bereit und aus, Stop nur wenn an.
-    dom.jammerStart.disabled = base || !jammerOk || jammerActive;
+    // Jammer: Start (WLAN/Bluetooth) nur wenn bereit und aus, Stop nur wenn an.
+    dom.jammerWlan.disabled = base || !jammerOk || jammerActive;
+    dom.jammerBt.disabled = base || !jammerOk || jammerActive;
     dom.jammerStop.disabled = base || !jammerOk || !jammerActive;
   }
 
@@ -349,7 +351,8 @@
     dom.irSendNewest = byId("btn-ir-send-newest");
     dom.irShutoff = byId("btn-ir-shutoff");
     dom.irSlotInput = byId("ir-slot-input");
-    dom.jammerStart = byId("btn-jammer-start");
+    dom.jammerWlan = byId("btn-jammer-wlan");
+    dom.jammerBt = byId("btn-jammer-bt");
     dom.jammerStop = byId("btn-jammer-stop");
     dom.modeOn = byId("btn-mode-on");
     dom.modeOff = byId("btn-mode-off");
@@ -368,7 +371,8 @@
     });
     dom.irSendNewest.addEventListener("click", () => sendCommand("ir", "send", {}, "IR: neuesten Slot senden angefordert."));
     dom.irShutoff.addEventListener("click", () => sendCommand("ir", "shutoff", {}, "IR-Ausschalt-Sequenz gestartet."));
-    dom.jammerStart.addEventListener("click", () => sendCommand("jammer", "start", {}, "2,4-GHz-Störung gestartet."));
+    dom.jammerWlan.addEventListener("click", () => sendCommand("jammer", "WLAN", {}, "WLAN-Störung gestartet."));
+    dom.jammerBt.addEventListener("click", () => sendCommand("jammer", "BT", {}, "Bluetooth-Störung gestartet."));
     dom.jammerStop.addEventListener("click", () => sendCommand("jammer", "stop", {}, "2,4-GHz-Störung gestoppt."));
     dom.modeOn.addEventListener("click", () => sendCommand("system", "setMode", { mode: "nomercy" }, "No-Mercy AN angefordert."));
     dom.modeOff.addEventListener("click", () => sendCommand("system", "setMode", { mode: "off" }, "No-Mercy AUS angefordert."));
