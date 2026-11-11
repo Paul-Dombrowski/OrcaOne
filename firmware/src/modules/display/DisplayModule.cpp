@@ -222,7 +222,7 @@ void DisplayModule::stopLive(Screen s) {
 }
 
 bool DisplayModule::isMenuScreen(Screen s) const {
-  return s == S_MENU || s == S_IR_MENU || s == S_INFO_MENU;
+  return s == S_MENU || s == S_IR_MENU || s == S_INFO_MENU || s == S_JAM_MENU;
 }
 bool DisplayModule::isListScreen(Screen s) const {
   return s == S_IR_SLOTS || s == S_NFC_CARDS;
@@ -239,6 +239,7 @@ int DisplayModule::menuIndex(Screen s) const {
     case S_MENU: return 0;
     case S_IR_MENU: return 1;
     case S_INFO_MENU: return 2;
+    case S_JAM_MENU: return 3;
     default: return -1;
   }
 }
@@ -247,6 +248,7 @@ DisplayModule::Screen DisplayModule::parentOf(Screen s) const {
   switch (s) {
     case S_IR_MENU: return S_MENU;
     case S_INFO_MENU: return S_MENU;
+    case S_JAM_MENU: return S_MENU;
     case S_IR_SLOTS: return S_IR_MENU;
     case S_NFC_CARDS: return S_MENU;
     case S_NFC_READ: return S_MENU;
@@ -268,7 +270,7 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen s,
       {"NFC lesen", KGoLive, S_NFC_READ, "nfc", "read"},
       {"Gespeicherte Karten", KList, S_NFC_CARDS},
       {"Infrarot", KNav, S_IR_MENU},
-      {"2,4 GHz", KToggle, S_MENU, "jammer", "start", "stop", nullptr, nullptr, 0},
+      {"2,4 GHz", KNav, S_JAM_MENU},
       {"No-Mercy", KToggle, S_MENU, "system", "setMode", "setMode", "nomercy",
        "off", 1},
       {"Info", KNav, S_INFO_MENU},
@@ -283,6 +285,11 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen s,
       {"WLAN / IP", KNav, S_INFO_WIFI},
       {"Verbundene Geraete", KNav, S_INFO_DEVICES},
   };
+  static const MenuEntry jamMenu[] = {
+      {"WLAN", KAction, S_JAM_MENU, "jammer", "WLAN"},
+      {"Bluetooth", KAction, S_JAM_MENU, "jammer", "BT"},
+      {"Stop", KAction, S_JAM_MENU, "jammer", "stop"},
+  };
   switch (s) {
     case S_MENU:
       count = sizeof(mainMenu) / sizeof(mainMenu[0]);
@@ -293,6 +300,9 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen s,
     case S_INFO_MENU:
       count = sizeof(infoMenu) / sizeof(infoMenu[0]);
       return infoMenu;
+    case S_JAM_MENU:
+      count = sizeof(jamMenu) / sizeof(jamMenu[0]);
+      return jamMenu;
     default:
       count = 0;
       return nullptr;

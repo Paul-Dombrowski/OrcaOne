@@ -30,6 +30,7 @@ public:
     S_MENU = 0,       // Hauptmenue
     S_IR_MENU,        // Untermenue Infrarot
     S_INFO_MENU,      // Untermenue Info
+    S_JAM_MENU,       // Untermenue 2,4 GHz (WLAN / Bluetooth / Stop)
     S_IR_SLOTS,       // dynamische Liste: aufgenommene IR-Slots -> senden
     S_NFC_CARDS,      // dynamische Liste: gespeicherte NFC-Karten -> ansehen
     S_NFC_READ,       // Live: Karte lesen (zeigt Daten, bleibt stehen)
@@ -64,7 +65,7 @@ public:
   bool handleCommand(const String& action, JsonObjectConst params) override;
 
 private:
-  static constexpr int kMenuStateCount = 3;   // S_MENU, S_IR_MENU, S_INFO_MENU
+  static constexpr int kMenuStateCount = 4;   // S_MENU, S_IR_MENU, S_INFO_MENU, S_JAM_MENU
   static constexpr int kToggleCount = 2;      // 2,4 GHz, No-Mercy
   static constexpr int kVisibleMenuRows = 4;
   static constexpr int kVisibleListRows = 3;  // Listen mit Titelzeile: 3 Zeilen
