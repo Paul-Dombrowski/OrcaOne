@@ -35,6 +35,11 @@ private:
   volatile bool _ok2 = false;
   volatile uint8_t _channel2 = JAM_CH_MID;  // aktueller Kanal Radio 2 (Status liest)
 
+  // Diagnose: wie oft der Sweep-Task pro Sekunde das (halbe) Band komplett
+  // durchstimmt. = wie oft jeder Kanal einer Bandhaelfte je Sekunde getroffen
+  // wird. Task schreibt (1x/s), statusJson liest (atomarer uint32-Read).
+  volatile uint32_t _sweepHz = 0;
+
   RF24 _radio;
   RF24 _radio2;
 };

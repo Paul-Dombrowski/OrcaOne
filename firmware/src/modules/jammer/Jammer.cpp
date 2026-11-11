@@ -86,9 +86,18 @@ void JammerModule::sweepTask(void* arg) {
   // vorhanden -> Bandteilung: Radio 1 untere Haelfte, Radio 2 obere Haelfte,
   // zwei Traeger gleichzeitig in der Luft = doppelte parallele Abdeckung (AFH).
   self->_radio.startConstCarrier(JAM_PA_LEVEL, self->_channel);
+  Serial.printf("[jammer] Radio 1 Traeger an (Start-CH %u)\n", self->_channel);
   if (self->_ok2) {
     self->_radio2.startConstCarrier(JAM_PA_LEVEL, self->_channel2);
+    Serial.printf("[jammer] Radio 2 Traeger an (Start-CH %u) - Dual aktiv\n",
+                  self->_channel2);
+  } else {
+    Serial.println("[jammer] nur Radio 1 (kein Radio 2) - Voll-Sweep");
   }
+
+  // Diagnose-Zaehler: Sweep-Durchlaeufe seit der letzten Sekunde.
+  uint32_t iter = 0;
+  uint32_t lastHzCalc = millis();
 
   uint32_t lastYield = millis();
   while (self->_running) {
@@ -110,6 +119,15 @@ void JammerModule::sweepTask(void* arg) {
       self->_channel = JAM_CH_MAX;
     }
 
+    // Sweep-Rate messen: einmal pro Sekunde die Durchlaufzahl nach _sweepHz
+    // spiegeln (so sieht man im status, ob/wie schnell der Task laeuft).
+    ++iter;
+    if (millis() - lastHzCalc >= 1000) {
+      self->_sweepHz = iter;
+      iter = 0;
+      lastHzCalc += 1000;
+    }
+
     // Kurz yielden, damit der Idle-Task auf diesem Core laeuft und den
     // Task-Watchdog bedient. ~<2 % Sendezeit, HF-technisch vernachlaessigbar
     // (der Standalone yieldet effektiv einmal pro loop()-Durchlauf).
@@ -127,6 +145,7 @@ void JammerModule::sweepTask(void* arg) {
   if (self->_ok2) {
     self->_radio2.stopConstCarrier();
   }
+  self->_sweepHz = 0;   // Diagnose zuruecksetzen (nichts laeuft mehr)
   self->_active = false;
   vTaskDelete(nullptr);
 }
@@ -137,6 +156,7 @@ void JammerModule::statusJson(JsonObject obj) {
   obj["active"] = _active;
   obj["channel"] = _channel;
   obj["channel2"] = _channel2;
+  obj["sweepHz"] = _sweepHz;   // Durchlaeufe/s (0 = Task laeuft nicht)
   obj["mode"] = _active ? "jamming" : "idle";
 }
 
