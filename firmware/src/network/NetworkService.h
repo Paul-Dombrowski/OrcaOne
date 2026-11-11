@@ -44,6 +44,17 @@ public:
   // Ist der Access Point aktiv? (fuer spaetere Status-Ausgabe / Stufe 2)
   bool ready() const { return _ready; }
 
+  // WLAN-Funk komplett abschalten (Access Point + HTTP-Server) bzw. wieder
+  // hochfahren. Wird vom JammerModule aufgerufen: waehrend des Jammens muss der
+  // 2,4-GHz-WLAN-Sender des ESP32 aus sein, sonst (a) funkt er gegen den NRF24-
+  // Stoersender im selben Band und (b) ziehen seine TX-Spitzen die 3,3 V nach
+  // unten -> die NRF24-PA wird ausgehungert und stoert kaum. Genau das macht
+  // auch das erprobte Standalone-Sketch (esp_wifi_stop()/deinit()).
+  // WICHTIG: beide nur aus dem loop()-Task aufrufen (wie handleCommand()),
+  // damit sie single-threaded zu update() laufen.
+  void suspend();
+  void resume();
+
 private:
   // Startet den HTTP-Server und registriert die Routen fuer die eingebetteten
   // Web-Dateien. Fehlschlag wird gemeldet, blockiert aber nicht (ARBEITSWEISE §6).

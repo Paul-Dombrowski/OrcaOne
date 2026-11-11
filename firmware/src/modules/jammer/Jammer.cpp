@@ -3,6 +3,9 @@
 #include <SPI.h>
 
 #include "../../config.h"
+#include "../../network/NetworkService.h"  // Net.suspend()/resume(): WLAN-Funk
+                                           // waehrend des Jammens aus (gemeinsamer
+                                           // Dienst wie Storage - kein Modul↔Modul)
 
 JammerModule::JammerModule()
     // 16 MHz SPI (statt Default 10 MHz): schnellere setChannel()-Schreibzugriffe
@@ -104,6 +107,12 @@ bool JammerModule::handleCommand(const String& action, JsonObjectConst params) {
       // ggf. "start" kurz erneut senden.
       return true;
     }
+    // WLAN AUS, bevor der Traeger kommt: sonst funkt der ESP32-WLAN-Sender im
+    // selben 2,4-GHz-Band gegen den Jammer und seine TX-Spitzen lassen die 3,3 V
+    // einbrechen (NRF24-PA ausgehungert). Hier im loop()-Task -> single-threaded
+    // zu Net.update(). Erklaert, warum der Standalone jammt, die integrierte
+    // Version mit laufendem WLAN bisher nicht.
+    Net.suspend();
     _running = true;
     _active = true;
     const BaseType_t ok =
@@ -113,6 +122,7 @@ bool JammerModule::handleCommand(const String& action, JsonObjectConst params) {
     if (ok != pdPASS) {
       _running = false;
       _active = false;
+      Net.resume();  // Taskstart fehlgeschlagen -> WLAN sofort wieder hoch
       Serial.println("[jammer] Task konnte nicht gestartet werden");
       return false;
     }
@@ -122,6 +132,7 @@ bool JammerModule::handleCommand(const String& action, JsonObjectConst params) {
 
   if (action == "stop") {
     _running = false;   // Task laeuft aus, schaltet Traeger ab und nullt _active
+    Net.resume();       // WLAN-Hotspot + Webserver wieder hochfahren
     Serial.println("[jammer] Störung deaktiviert");
     return true;
   }

@@ -188,6 +188,36 @@ void NetworkService::startHttpServer() {
   Serial.println("[net] HTTP-Server laeuft (Port 80). Web-Oberflaeche erreichbar.");
 }
 
+void NetworkService::suspend() {
+  // Vom Jammer vor dem Traegerstart aufgerufen (loop()-Task). HTTP-Server
+  // stoppen und den WLAN-Funk ganz abschalten -> kein Eigenfunk im 2,4-GHz-Band
+  // und deutlich weniger Stromhunger, damit die NRF24-PA die volle 3,3 V bekommt.
+  if (_httpServer != nullptr) {
+    httpd_stop(static_cast<httpd_handle_t>(_httpServer));
+    _httpServer = nullptr;
+  }
+  WiFi.softAPdisconnect(true);  // AP schliessen, verbundene Clients trennen
+  WiFi.mode(WIFI_OFF);          // Funkteil aus
+  _ready = false;
+  Serial.println("[net] WLAN fuer Jammer-Betrieb abgeschaltet.");
+}
+
+void NetworkService::resume() {
+  // Nach "jammer stop" den Hotspot + Webserver wieder hochfahren (gleicher
+  // Ablauf wie begin(), ohne Queue/Router - die bleiben erhalten).
+  if (_ready) return;  // laeuft bereits
+  WiFi.mode(WIFI_AP);
+  if (!WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD)) {
+    Serial.println("[net] WLAN-Hotspot konnte nach Jammer-Stopp NICHT neu starten.");
+    _ready = false;
+    return;
+  }
+  _ready = true;
+  Serial.print("[net] WLAN-Hotspot wieder aktiv. http://");
+  Serial.println(WiFi.softAPIP());
+  startHttpServer();
+}
+
 void NetworkService::update() {
   // Laeuft im loop()-Task: erst eingegangene WS-Befehle abarbeiten, dann in
   // festem Takt den Status an alle /ws-Clients senden. Beides nicht-blockierend.
