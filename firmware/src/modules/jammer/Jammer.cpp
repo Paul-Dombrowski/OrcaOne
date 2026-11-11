@@ -82,15 +82,33 @@ void JammerModule::sweepTask(void* arg) {
   auto* self = static_cast<JammerModule*>(arg);
 
   // Traeger EINMAL anschalten, danach nur noch den Kanal umstimmen (wie im
-  // erprobten Standalone). NICHT pro Kanal neu starten.
+  // erprobten Standalone). NICHT pro Kanal neu starten. Radio 2 nur, wenn
+  // vorhanden -> Bandteilung: Radio 1 untere Haelfte, Radio 2 obere Haelfte,
+  // zwei Traeger gleichzeitig in der Luft = doppelte parallele Abdeckung (AFH).
   self->_radio.startConstCarrier(JAM_PA_LEVEL, self->_channel);
+  if (self->_ok2) {
+    self->_radio2.startConstCarrier(JAM_PA_LEVEL, self->_channel2);
+  }
 
   uint32_t lastYield = millis();
   while (self->_running) {
-    for (uint8_t ch = JAM_CH_MIN; ch <= JAM_CH_MAX; ++ch) {
-      self->_radio.setChannel(ch);   // flat-out umstimmen, kein Delay
+    if (self->_ok2) {
+      // Gleichschritt: beide Radios pro Iteration fast gleichzeitig umstimmen.
+      // Radio 1: JAM_CH_MIN..JAM_CH_MID, Radio 2: JAM_CH_MID..JAM_CH_MAX
+      // (gleich viele Schritte; Ueberlappung auf JAM_CH_MID ist unschaedlich).
+      for (uint8_t i = 0; i <= (JAM_CH_MID - JAM_CH_MIN); ++i) {
+        self->_radio.setChannel(JAM_CH_MIN + i);
+        self->_radio2.setChannel(JAM_CH_MID + i);
+      }
+      self->_channel = JAM_CH_MID;
+      self->_channel2 = JAM_CH_MAX;
+    } else {
+      // Fallback ohne Radio 2: ein Radio sweept das ganze Band (wie bisher).
+      for (uint8_t ch = JAM_CH_MIN; ch <= JAM_CH_MAX; ++ch) {
+        self->_radio.setChannel(ch);   // flat-out umstimmen, kein Delay
+      }
+      self->_channel = JAM_CH_MAX;
     }
-    self->_channel = JAM_CH_MAX;
 
     // Kurz yielden, damit der Idle-Task auf diesem Core laeuft und den
     // Task-Watchdog bedient. ~<2 % Sendezeit, HF-technisch vernachlaessigbar
@@ -102,9 +120,13 @@ void JammerModule::sweepTask(void* arg) {
   }
 
   // Sauberer Aus-Zustand: Traeger NUR hier (im Task-Kontext) abschalten, nie
-  // parallel aus stop()/loop() -> kein gleichzeitiger SPI-Zugriff. Erst danach
-  // _active freigeben, damit ein neuer start() nicht ueberlappend startet.
+  // parallel aus stop()/loop() -> kein gleichzeitiger SPI-Zugriff. Radio 2 nur,
+  // wenn vorhanden. Erst danach _active freigeben, damit ein neuer start() nicht
+  // ueberlappend startet.
   self->_radio.stopConstCarrier();
+  if (self->_ok2) {
+    self->_radio2.stopConstCarrier();
+  }
   self->_active = false;
   vTaskDelete(nullptr);
 }
