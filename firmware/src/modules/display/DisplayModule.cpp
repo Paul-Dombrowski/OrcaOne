@@ -448,7 +448,8 @@ void DisplayModule::renderCurrent() {
   switch (_screen) {
     case S_MENU:
     case S_IR_MENU:
-    case S_INFO_MENU: drawMenu(); break;
+    case S_INFO_MENU:
+    case S_JAM_MENU: drawMenu(); break;
     case S_IR_SLOTS:
     case S_NFC_CARDS: drawDynamicList(); break;
     case S_NFC_READ: drawNfcRead(); break;
@@ -744,6 +745,7 @@ const char* DisplayModule::screenName() const {
     case S_MENU: return "menu";
     case S_IR_MENU: return "ir-menu";
     case S_INFO_MENU: return "info-menu";
+    case S_JAM_MENU: return "jam-menu";
     case S_IR_SLOTS: return "ir-slots";
     case S_NFC_CARDS: return "nfc-cards";
     case S_NFC_READ: return "nfc-read";
