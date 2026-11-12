@@ -228,7 +228,11 @@ bool DisplayModule::isListScreen(Screen s) const {
   return s == S_IR_SLOTS || s == S_NFC_CARDS;
 }
 bool DisplayModule::isLiveScreen(Screen s) const {
-  return s == S_NFC_READ || s == S_IR_RECORD || s == S_IR_SEND;
+  // S_JAM_STATUS zaehlt als Live-Screen (schnelles Neuzeichnen + nur Long-Press
+  // zurueck), beendet aber beim Zurueckgehen NICHT den Jammer (kein stopLive-Case)
+  // -> Stoerung laeuft weiter, Stop gibt es separat im Untermenue.
+  return s == S_NFC_READ || s == S_IR_RECORD || s == S_IR_SEND ||
+         s == S_JAM_STATUS;
 }
 bool DisplayModule::isInfoPage(Screen s) const {
   return s == S_INFO_WIFI || s == S_INFO_DEVICES;
@@ -249,6 +253,7 @@ DisplayModule::Screen DisplayModule::parentOf(Screen s) const {
     case S_IR_MENU: return S_MENU;
     case S_INFO_MENU: return S_MENU;
     case S_JAM_MENU: return S_MENU;
+    case S_JAM_STATUS: return S_JAM_MENU;
     case S_IR_SLOTS: return S_IR_MENU;
     case S_NFC_CARDS: return S_MENU;
     case S_NFC_READ: return S_MENU;
@@ -286,8 +291,8 @@ const DisplayModule::MenuEntry* DisplayModule::menuFor(Screen s,
       {"Verbundene Geraete", KNav, S_INFO_DEVICES},
   };
   static const MenuEntry jamMenu[] = {
-      {"WLAN", KAction, S_JAM_MENU, "jammer", "WLAN"},
-      {"Bluetooth", KAction, S_JAM_MENU, "jammer", "BT"},
+      {"WLAN", KGoLive, S_JAM_STATUS, "jammer", "WLAN"},
+      {"Bluetooth", KGoLive, S_JAM_STATUS, "jammer", "BT"},
       {"Stop", KAction, S_JAM_MENU, "jammer", "stop"},
   };
   switch (s) {
@@ -458,6 +463,7 @@ void DisplayModule::renderCurrent() {
     case S_CARD_VIEW: drawCardView(); break;
     case S_INFO_WIFI:
     case S_INFO_DEVICES: drawInfoPage(); break;
+    case S_JAM_STATUS: drawJamStatus(); break;
     case S_MESSAGE: drawMessage(); break;
   }
 }
@@ -683,6 +689,41 @@ void DisplayModule::drawInfoPage() {
   u8g2_SendBuffer(&_display);
 }
 
+void DisplayModule::drawJamStatus() {
+  // Jammer-Status ueber den Router holen (gleicher loop()-Task, entkoppelt wie
+  // die Web-UI). statusJson liest nur volatile Felder -> kein SPI, kein Einfluss
+  // auf den Sweep (der laeuft auf dem anderen Core).
+  JsonDocument doc;
+  JsonObject o = doc.to<JsonObject>();
+  const bool have = _router != nullptr && _router->moduleStatus("jammer", o);
+
+  u8g2_ClearBuffer(&_display);
+  u8g2_SetFont(&_display, u8g2_font_6x10_tr);
+  char l[26];
+
+  u8g2_DrawStr(&_display, 2, 10, "2,4 GHz Jammer");
+  u8g2_DrawHLine(&_display, 0, 13, 128);
+
+  if (!have) {
+    u8g2_DrawStr(&_display, 2, 30, "kein Status");
+  } else {
+    const bool active = o["active"] | false;
+    const char* profile = o["profile"] | "-";
+    const uint32_t sweepHz = o["sweepHz"] | 0u;
+    const bool ok2 = o["ok2"] | false;
+    const char* profLabel = (String(profile) == "wifi") ? "WLAN" : "Bluetooth";
+
+    snprintf(l, sizeof(l), "Modus: %s", active ? profLabel : "aus");
+    u8g2_DrawStr(&_display, 2, 26, l);
+    snprintf(l, sizeof(l), "Sweeps/s: %lu", (unsigned long)sweepHz);
+    u8g2_DrawStr(&_display, 2, 38, l);
+    snprintf(l, sizeof(l), "Antennen: %s", ok2 ? "2 (Dual)" : "1");
+    u8g2_DrawStr(&_display, 2, 50, l);
+  }
+  u8g2_DrawStr(&_display, 2, 62, "lang = zurueck");
+  u8g2_SendBuffer(&_display);
+}
+
 void DisplayModule::drawMessage() {
   u8g2_ClearBuffer(&_display);
   u8g2_SetFont(&_display, u8g2_font_6x10_tr);
@@ -746,6 +787,7 @@ const char* DisplayModule::screenName() const {
     case S_IR_MENU: return "ir-menu";
     case S_INFO_MENU: return "info-menu";
     case S_JAM_MENU: return "jam-menu";
+    case S_JAM_STATUS: return "jam-status";
     case S_IR_SLOTS: return "ir-slots";
     case S_NFC_CARDS: return "nfc-cards";
     case S_NFC_READ: return "nfc-read";

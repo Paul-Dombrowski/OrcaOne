@@ -31,6 +31,7 @@ public:
     S_IR_MENU,        // Untermenue Infrarot
     S_INFO_MENU,      // Untermenue Info
     S_JAM_MENU,       // Untermenue 2,4 GHz (WLAN / Bluetooth / Stop)
+    S_JAM_STATUS,     // Live: Jammer-Status (Modus, Sweeps/s, Antennen)
     S_IR_SLOTS,       // dynamische Liste: aufgenommene IR-Slots -> senden
     S_NFC_CARDS,      // dynamische Liste: gespeicherte NFC-Karten -> ansehen
     S_NFC_READ,       // Live: Karte lesen (zeigt Daten, bleibt stehen)
@@ -102,6 +103,7 @@ private:
   void drawIrSend();
   void drawCardView();
   void drawInfoPage();
+  void drawJamStatus();   // Live-Jammer-Status (liest jammer via Router::moduleStatus)
   void drawMessage();
   void drawListFrame(const char* title);  // Titelzeile + Trennlinie, gemeinsam
 
