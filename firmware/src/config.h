@@ -89,6 +89,13 @@
 // zickt (loechrige Writes), hier 2 oder 5 testen und per sweepHz + Wirkung pruefen.
 #define JAM_CS_DELAY_US   0
 
+// Kanal-Schrittweite im Vollband-Sweep (nur PROF_FULL). 1 = jeden Kanal (volle,
+// sichere Abdeckung). 2 = jeden zweiten -> ~2x sweepHz; da der Dauertraeger bei
+// 2 MBPS ~2 MHz breit ist, deckt er die uebersprungenen 1-MHz-Kanaele meist mit
+// ab. TEST: mit 2 flashen, sweepHz + Stoerwirkung gegen 1 vergleichen. Das
+// WLAN-Profil ignoriert diesen Wert (dort bewusst jeder Kanal).
+#define JAM_SWEEP_STEP    2
+
 // ---- Zweites NRF24 (Option A: selber VSPI-Bus, eigene CE/CSN) ----
 #define PIN_NRF2_CE   32   // Radio 2: CE  (freier Output-GPIO, kein Strapping-Pin)
 #define PIN_NRF2_CSN  33   // Radio 2: CSN (freier Output-GPIO, kein Strapping-Pin)
@@ -100,6 +107,11 @@
 #define JAM_WIFI_B2_LO       27                  // WLAN 6  -> NRF 27..47
 #define JAM_WIFI_B3_LO       52                  // WLAN 11 -> NRF 52..72
 #define JAM_WIFI_CH_COUNT   (3 * JAM_WIFI_BLOCK_WIDTH)  // 63
+// WLAN-Profil-Ziel: 0 = alle drei Bloecke (1/6/11, breit gestreut, schwach gegen
+// einen festen AP). 1 / 6 / 11 = NUR dieser WLAN-Kanal -> beide Antennen auf
+// denselben 20-MHz-Block konzentriert (~3x dichter). AP-Kanal per WiFi-Analyzer-
+// App finden und hier eintragen. (Andere Werte verhalten sich wie 0.)
+#define JAM_WIFI_TARGET_CH   0
 
 // ---- Micro-SD (Add-on, SPI, teilt Bus mit NRF24; eigener CS-Pin) ----
 // Vom Speicher-Dienst (storage/) genutzt. Muss ein ANDERER Pin sein als

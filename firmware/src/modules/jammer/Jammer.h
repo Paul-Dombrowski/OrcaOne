@@ -27,8 +27,10 @@ private:
   // und die Serial-Konsole bedienbar bleiben (update() bleibt leer).
   static void sweepTask(void* arg);
 
-  // Index (0..JAM_WIFI_CH_COUNT-1) -> NRF-Kanal innerhalb der drei WLAN-Bloecke.
-  static uint8_t wifiChannelAt(uint16_t idx);
+  // Index (0.._wifiChCount-1) -> NRF-Kanal innerhalb der aktiven WLAN-Bloecke.
+  // Nicht statisch, weil die aktiven Bloecke von JAM_WIFI_TARGET_CH abhaengen
+  // (in begin() gesetzt).
+  uint8_t wifiChannelAt(uint16_t idx) const;
 
   // Kapselt die Start-Sequenz (WLAN aus, Task erzeugen); idempotent: laeuft der
   // Jammer schon, nur true zurueckgeben (kein zweiter Task). Das Profil setzt
@@ -51,6 +53,12 @@ private:
   // Aktives Profil. Befehl schreibt (loop()-Task), Sweep-Task liest je Durchlauf
   // -> Profilwechsel wirkt ohne Neustart (Traeger bleibt an). volatile wie _channel.
   volatile JamProfile _profile = PROF_FULL;
+
+  // Aktive WLAN-Bloecke (aus JAM_WIFI_TARGET_CH, in begin() gesetzt). Bei Ziel 0
+  // alle drei Bloecke, sonst nur der eine. _wifiChCount = Anzahl Kanaele gesamt.
+  uint8_t _wifiBlockLo[3] = {JAM_WIFI_B1_LO, JAM_WIFI_B2_LO, JAM_WIFI_B3_LO};
+  uint8_t _wifiBlockCount = 3;
+  uint16_t _wifiChCount = JAM_WIFI_CH_COUNT;
 
   // Diagnose: wie oft der Sweep-Task pro Sekunde das (halbe) Band komplett
   // durchstimmt. = wie oft jeder Kanal einer Bandhaelfte je Sekunde getroffen

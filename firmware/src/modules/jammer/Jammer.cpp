@@ -21,6 +21,21 @@ void JammerModule::begin() {
   _running = false;
   _channel = 45;
 
+  // WLAN-Profil-Ziel aus config.h: 0 = alle drei Bloecke, 1/6/11 = nur dieser
+  // eine Block (beide Antennen konzentriert). Setzt die aktive Block-Liste.
+  switch (JAM_WIFI_TARGET_CH) {
+    case 1:  _wifiBlockLo[0] = JAM_WIFI_B1_LO; _wifiBlockCount = 1; break;
+    case 6:  _wifiBlockLo[0] = JAM_WIFI_B2_LO; _wifiBlockCount = 1; break;
+    case 11: _wifiBlockLo[0] = JAM_WIFI_B3_LO; _wifiBlockCount = 1; break;
+    default:
+      _wifiBlockLo[0] = JAM_WIFI_B1_LO;
+      _wifiBlockLo[1] = JAM_WIFI_B2_LO;
+      _wifiBlockLo[2] = JAM_WIFI_B3_LO;
+      _wifiBlockCount = 3;
+      break;
+  }
+  _wifiChCount = (uint16_t)_wifiBlockCount * JAM_WIFI_BLOCK_WIDTH;
+
   // WICHTIG: KEIN pinMode() auf SCK/MISO/MOSI! Diese Pins gehoeren dem SPI-
   // Treiber - SPI.begin() (main.cpp) hat sie an die SPI-Hardware geroutet. Ein
   // pinMode() hier wuerde sie in der arduino-esp32-GPIO-Matrix wieder von der
@@ -82,13 +97,12 @@ void JammerModule::update() {
   // update() muss nicht-blockierend sein (ARBEITSWEISE §6) - daher leer.
 }
 
-// Bildet einen laufenden Index auf den NRF-Kanal innerhalb der drei WLAN-Bloecke
-// ab (Block 0..2 je JAM_WIFI_BLOCK_WIDTH breit, ab B1/B2/B3_LO). Reine Funktion.
-uint8_t JammerModule::wifiChannelAt(uint16_t idx) {
-  static const uint8_t lo[3] = {JAM_WIFI_B1_LO, JAM_WIFI_B2_LO, JAM_WIFI_B3_LO};
-  const uint8_t block = idx / JAM_WIFI_BLOCK_WIDTH;   // 0..2
+// Bildet einen laufenden Index auf den NRF-Kanal innerhalb der AKTIVEN WLAN-
+// Bloecke ab (in begin() aus JAM_WIFI_TARGET_CH gesetzt). idx < _wifiChCount.
+uint8_t JammerModule::wifiChannelAt(uint16_t idx) const {
+  const uint8_t block = idx / JAM_WIFI_BLOCK_WIDTH;   // 0.._wifiBlockCount-1
   const uint8_t within = idx % JAM_WIFI_BLOCK_WIDTH;  // 0..20
-  return lo[block] + within;
+  return _wifiBlockLo[block] + within;
 }
 
 void JammerModule::sweepTask(void* arg) {
@@ -117,24 +131,25 @@ void JammerModule::sweepTask(void* arg) {
     if (self->_profile == PROF_WIFI) {
       // WLAN-Profil: nur die drei 20-MHz-Bloecke, Luecken ausgelassen. Bei Dual
       // laeuft Radio 2 um die halbe Menge versetzt -> doppelte Trefferdichte.
+      const uint16_t n = self->_wifiChCount;
       if (self->_ok2) {
-        const uint16_t half = JAM_WIFI_CH_COUNT / 2;
-        for (uint16_t i = 0; i < JAM_WIFI_CH_COUNT; ++i) {
-          self->_radio.setChannel(wifiChannelAt(i));
-          self->_radio2.setChannel(wifiChannelAt((i + half) % JAM_WIFI_CH_COUNT));
+        const uint16_t half = n / 2;
+        for (uint16_t i = 0; i < n; ++i) {
+          self->_radio.setChannel(self->wifiChannelAt(i));
+          self->_radio2.setChannel(self->wifiChannelAt((i + half) % n));
         }
       } else {
-        for (uint16_t i = 0; i < JAM_WIFI_CH_COUNT; ++i) {
-          self->_radio.setChannel(wifiChannelAt(i));
+        for (uint16_t i = 0; i < n; ++i) {
+          self->_radio.setChannel(self->wifiChannelAt(i));
         }
       }
-      self->_channel = wifiChannelAt(JAM_WIFI_CH_COUNT - 1);
-      self->_channel2 = wifiChannelAt(JAM_WIFI_CH_COUNT - 1);
+      self->_channel = self->wifiChannelAt(n - 1);
+      self->_channel2 = self->wifiChannelAt(n - 1);
     } else if (self->_ok2) {
       // PROF_FULL, Dual: Gleichschritt, beide Radios pro Iteration umstimmen.
       // Radio 1: JAM_CH_MIN..JAM_CH_MID, Radio 2: JAM_CH_MID..JAM_CH_MAX
       // (gleich viele Schritte; Ueberlappung auf JAM_CH_MID ist unschaedlich).
-      for (uint8_t i = 0; i <= (JAM_CH_MID - JAM_CH_MIN); ++i) {
+      for (uint8_t i = 0; i <= (JAM_CH_MID - JAM_CH_MIN); i += JAM_SWEEP_STEP) {
         self->_radio.setChannel(JAM_CH_MIN + i);
         self->_radio2.setChannel(JAM_CH_MID + i);
       }
@@ -142,7 +157,7 @@ void JammerModule::sweepTask(void* arg) {
       self->_channel2 = JAM_CH_MAX;
     } else {
       // PROF_FULL ohne Radio 2: ein Radio sweept das ganze Band (wie bisher).
-      for (uint8_t ch = JAM_CH_MIN; ch <= JAM_CH_MAX; ++ch) {
+      for (uint8_t ch = JAM_CH_MIN; ch <= JAM_CH_MAX; ch += JAM_SWEEP_STEP) {
         self->_radio.setChannel(ch);   // flat-out umstimmen, kein Delay
       }
       self->_channel = JAM_CH_MAX;
