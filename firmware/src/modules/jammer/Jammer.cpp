@@ -47,9 +47,9 @@ void JammerModule::begin() {
   _radio.setCRCLength(RF24_CRC_DISABLED);
   _radio.stopListening();
   _radio.setChannel(_channel);
-  // CSN-Settle-Delay (Default 5 us) raus: ohne AutoAck/ohne Empfang unnoetig.
-  // Spart ~10 us je setChannel (2x CSN) -> deutlich dichterer Sweep (sweepHz).
-  _radio.csDelay = 0;
+  // CSN-Settle-Delay aus config.h (0 = schnellster Sweep, aber auf Klonen oft
+  // unzuverlaessig; 5 = sicher). Siehe JAM_CS_DELAY_US.
+  _radio.csDelay = JAM_CS_DELAY_US;
 
   _ok = true;
   Serial.println("[jammer] NRF24 bereit");
@@ -68,7 +68,7 @@ void JammerModule::begin() {
     _radio2.setCRCLength(RF24_CRC_DISABLED);
     _radio2.stopListening();
     _radio2.setChannel(_channel2);
-    _radio2.csDelay = 0;   // wie Radio 1: CSN-Delay raus -> schnellerer Sweep
+    _radio2.csDelay = JAM_CS_DELAY_US;   // wie Radio 1, aus config.h
     _ok2 = true;
     Serial.println("[jammer] NRF24 #2 bereit (Dual-Antenne, Bandteilung)");
   } else {

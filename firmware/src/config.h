@@ -83,6 +83,12 @@
 // besser. Werte: RF24_PA_MIN / RF24_PA_LOW / RF24_PA_HIGH / RF24_PA_MAX.
 #define JAM_PA_LEVEL   RF24_PA_MAX
 
+// CSN-Settle-Wartezeit (us) je Registerschreibzugriff beider Radios.
+// RF24-Default = 5. 0 = schnellster Sweep, ABER auf NRF24-PA+LNA-KLONEN bei
+// 16 MHz oft unzuverlaessige setChannel-Writes -> loechrige Abdeckung. Zum
+// Abstimmen: 5 (sicher) -> 2 -> 0 testen und per sweepHz + Wirkung vergleichen.
+#define JAM_CS_DELAY_US   5
+
 // ---- Zweites NRF24 (Option A: selber VSPI-Bus, eigene CE/CSN) ----
 #define PIN_NRF2_CE   32   // Radio 2: CE  (freier Output-GPIO, kein Strapping-Pin)
 #define PIN_NRF2_CSN  33   // Radio 2: CSN (freier Output-GPIO, kein Strapping-Pin)
