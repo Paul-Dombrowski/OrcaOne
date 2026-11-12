@@ -83,11 +83,11 @@
 // besser. Werte: RF24_PA_MIN / RF24_PA_LOW / RF24_PA_HIGH / RF24_PA_MAX.
 #define JAM_PA_LEVEL   RF24_PA_MAX
 
-// CSN-Settle-Wartezeit (us) je Registerschreibzugriff beider Radios.
-// RF24-Default = 5. 0 = schnellster Sweep, ABER auf NRF24-PA+LNA-KLONEN bei
-// 16 MHz oft unzuverlaessige setChannel-Writes -> loechrige Abdeckung. Zum
-// Abstimmen: 5 (sicher) -> 2 -> 0 testen und per sweepHz + Wirkung vergleichen.
-#define JAM_CS_DELAY_US   5
+// CSN-Settle-Wartezeit (us) je Registerschreibzugriff beider Radios (RF24-Default
+// = 5). Auf DIESER Hardware gemessen: 0 -> sweepHz ~509 und jammt deutlich besser;
+// 5 -> ~358 und spuerbar schwaecher. Daher 0. Falls ein anderes/instabiles NRF24
+// zickt (loechrige Writes), hier 2 oder 5 testen und per sweepHz + Wirkung pruefen.
+#define JAM_CS_DELAY_US   0
 
 // ---- Zweites NRF24 (Option A: selber VSPI-Bus, eigene CE/CSN) ----
 #define PIN_NRF2_CE   32   // Radio 2: CE  (freier Output-GPIO, kein Strapping-Pin)
